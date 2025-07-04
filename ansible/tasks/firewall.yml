@@ -1,0 +1,36 @@
+---
+# Firewall Configuration Tasks
+# Configures UFW firewall rules for ATL services
+
+- name: firewall | Enable UFW firewall
+  community.general.ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+
+- name: firewall | Allow SSH access
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+
+- name: firewall | Allow HTTP/HTTPS
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - "80"
+    - "443"
+
+- name: firewall | Allow service-specific ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ service_ports | default([]) }}"
+  when: service_ports is defined
+
+- name: firewall | Configure firewall logging
+  community.general.ufw:
+    logging: "on"

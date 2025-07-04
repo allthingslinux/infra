@@ -1,0 +1,16 @@
+---
+# Timezone configuration
+
+- name: subtasks | timezone | Set system timezone
+  community.general.timezone:
+    name: "{{ system_timezone }}"
+  notify: restart ntp
+
+- name: subtasks | timezone | Verify timezone is set correctly
+  ansible.builtin.command: timedatectl show --property=Timezone --value
+  register: current_timezone
+  changed_when: false
+
+- name: subtasks | timezone | Display current timezone
+  ansible.builtin.debug:
+    msg: "System timezone is set to: {{ current_timezone.stdout }}"

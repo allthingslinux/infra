@@ -1,0 +1,106 @@
+---
+groups:
+  - name: infrastructure_alerts
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} down"
+          description: "{{ $labels.instance }} has been down for more than 5 minutes."
+
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 80% on {{ $labels.instance }}"
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 85% on {{ $labels.instance }}"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk space is below 15% on {{ $labels.instance }} filesystem {{ $labels.mountpoint }}"
+
+      - alert: HighLoadAverage
+        expr: node_load1 > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High load average on {{ $labels.instance }}"
+          description: "Load average is above 2 on {{ $labels.instance }}"
+
+  - name: application_alerts
+    rules:
+      - alert: WebsiteDown
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Website {{ $labels.instance }} is down"
+          description: "Website {{ $labels.instance }} has been down for more than 2 minutes"
+
+      - alert: WebsiteSlowResponse
+        expr: probe_duration_seconds > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Website {{ $labels.instance }} slow response"
+          description: "Website {{ $labels.instance }} response time is above 5 seconds"
+
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL down on {{ $labels.instance }}"
+          description: "PostgreSQL instance {{ $labels.instance }} is down"
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis down on {{ $labels.instance }}"
+          description: "Redis instance {{ $labels.instance }} is down"
+
+  - name: docker_alerts
+    rules:
+      - alert: DockerContainerDown
+        expr: absent(container_last_seen) or (time() - container_last_seen) > 60
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Docker container {{ $labels.name }} down"
+          description: "Docker container {{ $labels.name }} has been down for more than 5 minutes"
+
+      - alert: DockerHighMemoryUsage
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage in container {{ $labels.name }}"
+          description: "Container {{ $labels.name }} memory usage is above 90%"

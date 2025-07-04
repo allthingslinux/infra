@@ -1,0 +1,25 @@
+---
+# Kernel parameter configuration
+
+- name: subtasks | sysctl | Configure kernel parameters
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/99-atl_custom.conf
+  loop: "{{ system_sysctl_config | dict2items }}"
+  notify: reload sysctl
+
+- name: subtasks | sysctl | Verify kernel parameters are applied
+  ansible.builtin.command: sysctl "{{ item.key }}"
+  loop: "{{ system_sysctl_config | dict2items }}"
+  register: sysctl_verification
+  changed_when: false
+  failed_when: false
+
+- name: subtasks | sysctl | Display kernel parameter status
+  ansible.builtin.debug:
+    msg: "{{ item.stdout }}"
+  loop: "{{ sysctl_verification.results }}"
+  when: item.stdout is defined

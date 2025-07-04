@@ -1,0 +1,61 @@
+---
+# Main tasks file for system role - Base system configuration
+
+- name: system | Install system packages
+  ansible.builtin.include_tasks: subtasks/packages.yml
+  tags:
+    - system
+    - packages
+
+- name: system | Configure hostname and hosts file
+  ansible.builtin.include_tasks: subtasks/hostname.yml
+  tags:
+    - system
+    - hostname
+    - network
+
+- name: system | Configure timezone
+  ansible.builtin.include_tasks: subtasks/timezone.yml
+  tags:
+    - system
+    - timezone
+
+- name: system | Configure locale
+  ansible.builtin.include_tasks: subtasks/locale.yml
+  tags:
+    - system
+    - locale
+
+- name: system | Configure SSH
+  ansible.builtin.include_tasks: subtasks/ssh.yml
+  tags:
+    - system
+    - ssh
+    - security
+
+- name: system | Configure kernel parameters
+  ansible.builtin.include_tasks: subtasks/sysctl.yml
+  tags:
+    - system
+    - sysctl
+    - kernel
+
+- name: system | Configure environment variables
+  ansible.builtin.include_tasks: subtasks/environment.yml
+  tags:
+    - system
+    - environment
+
+- name: system | Configure cron jobs
+  ansible.builtin.include_tasks: subtasks/cron.yml
+  when: system_cron_jobs | length > 0
+  tags:
+    - system
+    - cron
+
+- name: system | Configure log rotation
+  ansible.builtin.include_tasks: subtasks/logrotate.yml
+  when: system_logrotate_configs | length > 0
+  tags:
+    - system
+    - logrotate

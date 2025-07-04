@@ -1,0 +1,37 @@
+#cloud-config
+hostname: ${hostname}
+manage_etc_hosts: true
+
+# Update packages and install basic tools
+packages:
+  - curl
+  - wget
+  - git
+  - htop
+  - vim
+  - ufw
+  - fail2ban
+  - unattended-upgrades
+
+# Configure automatic security updates
+package_update: true
+package_upgrade: true
+
+# Configure SSH
+ssh_pwauth: false
+disable_root: false
+
+# Basic firewall setup (will be enhanced by Ansible)
+runcmd:
+  - systemctl enable ufw
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow ssh
+  - systemctl enable fail2ban
+  - systemctl start fail2ban
+
+# Set timezone
+timezone: UTC
+
+# Final message
+final_message: "Cloud-init setup complete. Server ready for Ansible configuration."

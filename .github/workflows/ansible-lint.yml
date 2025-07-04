@@ -1,0 +1,212 @@
+---
+# GitHub Actions Workflow for All Things Linux Infrastructure Linting
+# This workflow runs ansible-lint on pull requests and pushes to main branches
+
+name: Ansible Lint
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "feature/*"
+    paths:
+      - "**.yml"
+      - "**.yaml"
+      - "playbooks/**"
+      - "roles/**"
+      - "inventories/**"
+      - "group_vars/**"
+      - "host_vars/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "**.yml"
+      - "**.yaml"
+      - "playbooks/**"
+      - "roles/**"
+      - "inventories/**"
+      - "group_vars/**"
+      - "host_vars/**"
+  workflow_dispatch:
+jobs:
+  ansible-lint:
+    name: Ansible Lint
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Install Ansible collections
+        run: |
+          poetry run ansible-galaxy collection install -r collections/requirements.yml
+
+      - name: Run ansible-lint
+        run: |
+          poetry run ansible-lint playbooks/ roles/ --format codeclimate
+
+  yaml-syntax:
+    name: YAML Syntax Check
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PyYAML
+        run: |
+          python -m pip install --upgrade pip
+          pip install PyYAML
+
+      - name: Check YAML syntax
+        run: |
+          find . -name "*.yml" -o -name "*.yaml" | grep -v ".git" | while read file; do
+            echo "Checking $file..."
+            python -c "import yaml; yaml.safe_load(open('$file'))"
+          done
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-results.sarif"
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-results.sarif"
+
+  file-quality:
+    name: File Quality Checks
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for trailing whitespace
+        run: |
+          if find . -name "*.yml" -o -name "*.yaml" -o -name "*.sh" | xargs grep -l '[[:space:]]$'; then
+            echo "❌ Found files with trailing whitespace"
+            exit 1
+          else
+            echo "✅ No trailing whitespace found"
+          fi
+
+      - name: Check file permissions
+        run: |
+          if find . -name "*.yml" -o -name "*.yaml" | xargs ls -la | grep '^-rwxr'; then
+            echo "❌ Found executable YAML files"
+            exit 1
+          else
+            echo "✅ YAML file permissions are correct"
+          fi
+
+      - name: Check for secrets
+        run: |
+          if grep -r -i -E "(password|secret|key|token)" --include="*.yml" --include="*.yaml" . | grep -v -E "(# |description|comment|example)"; then
+            echo "❌ Potential secrets found in YAML files"
+            echo "Please use Ansible Vault for sensitive data"
+            exit 1
+          else
+            echo "✅ No obvious secrets found in plain text"
+          fi
+
+  deployment-test:
+    name: Deployment Test (Dry Run)
+    runs-on: ubuntu-24.04
+    needs: [ansible-lint, yaml-syntax]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        id: setup-python-deployment
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies-deployment
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python-deployment.outputs.python-version }}-${{
+            hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies-deployment.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Install Ansible collections
+        run: |
+          poetry run ansible-galaxy collection install -r collections/requirements.yml
+
+      - name: Test playbook syntax
+        run: |
+          poetry run ansible-playbook --syntax-check playbooks/site.yml
+
+      - name: Test dynamic inventory parsing
+        run: |
+          chmod +x inventories/dynamic.py
+          poetry run ./inventories/dynamic.py --list > /dev/null
+
+      - name: Validate deployment scripts
+        run: |-
+          chmod +x scripts/deploy.sh scripts/deploy-dynamic.sh
+          ./scripts/deploy.sh --help > /dev/null
+          ./scripts/deploy-dynamic.sh --help > /dev/null

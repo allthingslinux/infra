@@ -1,0 +1,22 @@
+---
+# Log rotation configuration
+
+- name: subtasks | logrotate | Configure custom logrotate rules
+  ansible.builtin.template:
+    src: logrotate.j2
+    dest: "/etc/logrotate.d/{{ item.name }}"
+    mode: "0644"
+    backup: true
+  loop: "{{ system_logrotate_configs }}"
+  notify: test logrotate
+
+- name: subtasks | logrotate | Verify logrotate configuration
+  ansible.builtin.command: logrotate -d /etc/logrotate.conf
+  register: logrotate_test
+  changed_when: false
+  failed_when: false
+
+- name: subtasks | logrotate | Display logrotate test results
+  ansible.builtin.debug:
+    msg: "Logrotate configuration test completed"
+  when: logrotate_test.rc == 0

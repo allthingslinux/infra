@@ -1,0 +1,39 @@
+---
+- name: tux | Ensure Tux bot directory exists
+  ansible.builtin.file:
+    path: /opt/tux-bot
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: tux | Deploy docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: /opt/tux-bot/docker-compose.yml
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: tux | Deploy .env file
+  ansible.builtin.template:
+    src: env.j2
+    dest: /opt/tux-bot/.env
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: tux | Deploy settings.yml
+  ansible.builtin.template:
+    src: settings.yml.j2
+    dest: /opt/tux-bot/settings.yml
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: tux | Start or update Tux bot container
+  ansible.builtin.command:
+    cmd: docker compose -f /opt/tux-bot/docker-compose.yml up -d
+  args:
+    chdir: /opt/tux-bot
+  changed_when: true

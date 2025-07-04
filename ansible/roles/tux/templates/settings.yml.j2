@@ -1,0 +1,38 @@
+# Example configuration for Tux
+BOT_INFO:
+  PROD_PREFIX: "{{ tux_prod_prefix | default('$') }}"
+  DEV_PREFIX: "{{ tux_dev_prefix | default('~') }}"
+  BOT_NAME: "{{ tux_bot_name | default('Tux') }}"
+  HIDE_BOT_OWNER: {{ tux_hide_bot_owner | default('false') }}
+
+ACTIVITIES: {{ tux_activities | default('[]') }}
+
+ALLOWED_SYSTEMS_EVAL: {{ tux_allowed_systems_eval | default('false') }}
+
+USER_IDS:
+  SYSADMINS: {{ tux_sysadmins | default('[]') }}
+  BOT_OWNER: {{ tux_bot_owner | default('123456789012345678') }}
+
+TEMPVC_CATEGORY_ID: {{ tux_tempvc_category_id | default('123456789012345678') }}
+TEMPVC_CHANNEL_ID: {{ tux_tempvc_channel_id | default('123456789012345678') }}
+
+STATUS_ROLES: {{ tux_status_roles | default('[]') }}
+SNIPEPETS:
+  LIMIT_TO_ROLE_IDS: {{ tux_snipepets_limit_to_role_ids | default('[]') }}
+  ACCESS_ROLE_IDS: {{ tux_snipepets_access_role_ids | default('[]') }}
+XP:
+  XP_BLACKLIST_CHANNELS: {{ tux_xp_blacklist_channels | default('[]') }}
+  XP_ROLES: {{ tux_xp_roles | default('[]') }}
+  XP_MULTIPLIERS: {{ tux_xp_multipliers | default('[]') }}
+  XP_COOLDOWN: {{ tux_xp_cooldown | default('1') }}
+  LEVELS_EXPONENT: {{ tux_levels_exponent | default('1') }}
+  SHOW_XP_PROGRESS: {{ tux_show_xp_progress | default('false') }}
+  ENABLE_XP_CAP: {{ tux_enable_xp_cap | default('false') }}
+GIF_LIMITER:
+  RECENT_GIF_AGE: {{ tux_recent_gif_age | default('60') }}
+  GIF_LIMIT_EXCLUDE:
+    - {{ tux_gif_limit_exclude | default('123456789012345678') }}
+  GIF_LIMITS_USER:
+    "{{ tux_gif_limits_user | default('123456789012345678') }}": 2
+  GIF_LIMITS_CHANNEL:
+    "{{ tux_gif_limits_channel | default('123456789012345678') }}": 3

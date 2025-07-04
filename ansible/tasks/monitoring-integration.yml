@@ -1,0 +1,143 @@
+---
+# Monitoring Integration Tasks
+# Integrates all services with Grafana and Prometheus monitoring
+
+- name: monitoring-integration | Ensure Prometheus configuration directory exists
+  ansible.builtin.file:
+    path: /opt/atl-services/prometheus
+    state: directory
+    mode: "0755"
+  delegate_to: "{{ groups['atl_services'][0] }}"
+  run_once: true
+
+- name: monitoring-integration | Update Prometheus configuration with all targets
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /opt/atl-services/prometheus/prometheus.yml
+    mode: "0644"
+    backup: true
+  delegate_to: "{{ groups['atl_services'][0] }}"
+  run_once: true
+  notify: restart prometheus
+
+- name: monitoring-integration | Configure Node Exporter
+  ansible.builtin.systemd:
+    name: node_exporter
+    enabled: true
+    state: started
+  failed_when: false
+
+- name: monitoring-integration | Add service-specific monitoring targets
+  ansible.builtin.uri:
+    url: "http://{{ groups['atl_services'][0] }}:3000/api/admin/provisioning/datasources"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ grafana_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ inventory_hostname }}-node-exporter"
+      type: "prometheus"
+      url: "http://{{ ansible_default_ipv4.address }}:9100"
+      access: "proxy"
+      isDefault: false
+      jsonData:
+        timeInterval: "15s"
+        httpMethod: "GET"
+  when: grafana_api_token is defined
+  failed_when: false
+  delegate_to: localhost
+
+- name: monitoring-integration | Import Grafana dashboards
+  ansible.builtin.uri:
+    url: "http://{{ groups['atl_services'][0] }}:3000/api/dashboards/db"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ grafana_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      dashboard: "{{ item.dashboard }}"
+      overwrite: true
+      message: "Updated via Ansible"
+  loop:
+    - dashboard: "{{ lookup('file', 'templates/grafana-dashboards/node-exporter.json') | from_json }}"
+    - dashboard: "{{ lookup('file', 'templates/grafana-dashboards/docker-containers.json') | from_json }}"
+    - dashboard: "{{ lookup('file', 'templates/grafana-dashboards/atl-services.json') | from_json }}"
+  when:
+    - grafana_api_token is defined
+    - inventory_hostname in groups['atl_services']
+  failed_when: false
+  delegate_to: localhost
+  run_once: true
+
+- name: monitoring-integration | Configure alerting rules
+  ansible.builtin.template:
+    src: alerting-rules.yml.j2
+    dest: /opt/atl-services/prometheus/alerting-rules.yml
+    mode: "0644"
+    backup: true
+  delegate_to: "{{ groups['atl_services'][0] }}"
+  run_once: true
+  notify: restart prometheus
+
+- name: monitoring-integration | Set up alert manager configuration
+  ansible.builtin.template:
+    src: alertmanager.yml.j2
+    dest: /opt/atl-services/alertmanager/alertmanager.yml
+    mode: "0644"
+    backup: true
+  delegate_to: "{{ groups['atl_services'][0] }}"
+  run_once: true
+  notify: restart alertmanager
+
+- name: monitoring-integration | Configure log aggregation
+  ansible.builtin.template:
+    src: loki-config.yml.j2
+    dest: /opt/atl-services/loki/loki-config.yml
+    mode: "0644"
+    backup: true
+  delegate_to: "{{ groups['atl_services'][0] }}"
+  run_once: true
+  notify: restart loki
+
+- name: monitoring-integration | Install and configure Promtail for log shipping
+  ansible.builtin.template:
+    src: promtail-config.yml.j2
+    dest: /etc/promtail/config.yml
+    mode: "0644"
+    backup: true
+  notify: restart promtail
+
+- name: monitoring-integration | Verify monitoring stack health
+  ansible.builtin.uri:
+    url: "{{ item.url }}"
+    method: GET
+    status_code: 200
+  loop:
+    - { url: "http://{{ groups['atl_services'][0] }}:3000/api/health" } # Grafana
+    - { url: "http://{{ groups['atl_services'][0] }}:9090/-/healthy" } # Prometheus
+    - { url: "http://{{ groups['atl_services'][0] }}:9093/-/healthy" } # Alertmanager
+    - { url: "http://{{ groups['atl_services'][0] }}:3100/ready" } # Loki
+  register: monitoring_health
+  failed_when: false
+  delegate_to: localhost
+  run_once: true
+
+- name: monitoring-integration | Configure monitoring integration summary
+  ansible.builtin.debug:
+    msg: |
+      ✅ Monitoring Integration Complete!
+
+      📊 Grafana: http://{{ groups['atl_services'][0] }}:3000
+      🔍 Prometheus: http://{{ groups['atl_services'][0] }}:9090
+      🚨 Alertmanager: http://{{ groups['atl_services'][0] }}:9093
+      📝 Loki: http://{{ groups['atl_services'][0] }}:3100
+
+      Targets Configured:
+      {% for host in groups['all'] %}
+      • {{ host }}: Node Exporter ({{ hostvars[host]['ansible_default_ipv4']['address'] }}:9100)
+      {% endfor %}
+
+      Monitoring Status: {{ 'HEALTHY' if monitoring_health.results | selectattr('status', '==', 200) | list | length == 4 else 'PARTIAL' }}
+  run_once: true

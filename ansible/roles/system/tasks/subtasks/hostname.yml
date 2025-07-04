@@ -1,0 +1,25 @@
+---
+# Hostname and /etc/hosts configuration
+
+- name: subtasks | hostname | Set system hostname
+  ansible.builtin.hostname:
+    name: "{{ system_hostname }}"
+  notify: restart networking
+
+- name: subtasks | hostname | Configure /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "{{ item.ip }} {{ item.hostnames | join(' ') }}"
+    regexp: "^{{ item.ip }}"
+    backup: true
+  loop: "{{ system_hosts_entries }}"
+  notify: restart networking
+
+- name: subtasks | hostname | Add FQDN to /etc/hosts if domain is set
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "127.0.1.1 {{ system_hostname }}.{{ system_domain }} {{ system_hostname }}"
+    regexp: "^127\\.0\\.1\\.1"
+    backup: true
+  when: system_domain | length > 0
+  notify: restart networking

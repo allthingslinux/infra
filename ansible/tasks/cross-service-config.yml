@@ -1,0 +1,63 @@
+---
+# Cross-Service Configuration Tasks
+# Configures integration between different ATL services
+
+- name: cross-service-config | Configure service discovery
+  ansible.builtin.template:
+    src: service-discovery.yml.j2
+    dest: /opt/atl-config/service-discovery.yml
+    mode: "0644"
+  notify: update service discovery
+
+- name: cross-service-config | Update service endpoints in configuration files
+  ansible.builtin.replace:
+    path: "{{ item.path }}"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.replace }}"
+  loop:
+    - path: /opt/*/config/*.yml
+      regexp: "AUTH_SERVER_URL=.*"
+      replace: "AUTH_SERVER_URL=https://auth.atl.services"
+    - path: /opt/*/config/*.env
+      regexp: "GRAFANA_URL=.*"
+      replace: "GRAFANA_URL=https://metrics.atl.services"
+    - path: /opt/*/config/*.conf
+      regexp: "PROXY_HOST=.*"
+      replace: 'PROXY_HOST={{ groups["atl_services"][0] }}'
+  failed_when: false
+
+- name: cross-service-config | Configure SSO integration for all services
+  ansible.builtin.uri:
+    url: "https://auth.atl.services/api/v3/core/applications/"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ authentik_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ inventory_hostname }}"
+      slug: "{{ inventory_hostname | replace('-', '_') }}"
+      provider: "{{ sso_provider_id }}"
+  when: authentik_api_token is defined
+  failed_when: false
+
+- name: cross-service-config | Register services with monitoring
+  ansible.builtin.uri:
+    url: "http://{{ groups['atl_services'][0] }}:3000/api/admin/provisioning/datasources"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ grafana_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ inventory_hostname }}-metrics"
+      type: "prometheus"
+      url: "http://{{ ansible_default_ipv4.address }}:9100"
+      access: "proxy"
+      isDefault: false
+  when: grafana_api_token is defined
+  failed_when: false
+
+- name: cross-service-config | Update reverse proxy configuration
+  ansible.builtin.include_tasks: update-reverse-proxy.yml
+  when: groups['atl_services'] is defined

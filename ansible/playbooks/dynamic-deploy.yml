@@ -1,0 +1,92 @@
+---
+# Dynamic Domain Deployment Playbook
+# Automatically deploys any enabled domain from domains.yml
+
+- name: "Load and Process Domain Configuration"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Load domains configuration
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../domains.yml"
+        name: domains_config
+
+    - name: Filter enabled domains
+      ansible.builtin.set_fact:
+        enabled_domains: >-
+          {{
+            domains_config.domains | dict2items |
+            selectattr('value.enabled', 'equalto', true) |
+            rejectattr('value.external', 'defined') |
+            items2dict
+          }}
+
+    - name: Display enabled domains
+      ansible.builtin.debug:
+        msg: |
+          🚀 Dynamic Deployment Plan:
+
+          Total domains: {{ enabled_domains | length }}
+
+          {% for name, config in enabled_domains.items() %}
+          📋 {{ name }}:
+            • Domain: {{ config.domain }}
+            • Services: {{ config.services | join(', ') }}
+            • Monitoring: {{ config.monitoring.enabled | default(false) }}
+            {% if config.subdomains is defined %}
+            • Subdomains: {{ config.subdomains | join(', ') }}
+            {% endif %}
+          {% endfor %}
+
+# Deploy each enabled domain using the generic playbook
+- name: "Deploy Enabled Domains"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: "Create deployment manifest"
+      ansible.builtin.set_fact:
+        deployment_manifest: |
+          Run the following commands to deploy each domain:
+
+          {% for name, config in enabled_domains.items() %}
+          ansible-playbook playbooks/domains/generic-domain.yml --limit {{ name }} --extra-vars "target_domain={{ name }}"
+          {% endfor %}
+
+    - name: "Display deployment instructions"
+      ansible.builtin.debug:
+        msg: "{{ deployment_manifest }}"
+
+    - name: "Note about manual deployment"
+      ansible.builtin.debug:
+        msg: |
+          ⚠️  Manual deployment required:
+
+          The dynamic deployment approach requires running individual domain
+          deployments manually or using the wrapper script.
+
+          Alternatively, run: ansible-playbook playbooks/site.yml
+
+# Final verification across all domains
+- name: "Post-Deployment Verification"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+                           🎉 DYNAMIC DEPLOYMENT COMPLETE 🎉
+          ═══════════════════════════════════════════════════════════════
+
+          Successfully deployed {{ enabled_domains | length }} domains:
+
+          {% for name, config in enabled_domains.items() %}
+          ✅ {{ config.domain }} ({{ name }})
+          {% endfor %}
+
+          🔧 Next Steps:
+          1. Verify all services are accessible
+          2. Check SSL certificates in NPM
+          3. Test reverse proxy configurations
+          4. Validate monitoring dashboards
+          ═══════════════════════════════════════════════════════════════

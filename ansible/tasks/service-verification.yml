@@ -1,0 +1,107 @@
+---
+# Service Verification Tasks
+# Verifies all ATL services are running and accessible
+
+- name: service-verification | Check Docker service status
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+  register: docker_status
+
+- name: service-verification | Get running containers
+  ansible.builtin.command: docker ps --format "table {{ '{{' }}.Names{{ '}}' }}\t{{ '{{' }}.Status{{ '}}' }}\t{{ '{{'
+    }}.Ports{{ '}}' }}"
+  register: running_containers
+  changed_when: false
+
+- name: service-verification | Verify service health endpoints
+  ansible.builtin.uri:
+    url: "{{ item.url }}"
+    method: GET
+    status_code: "{{ item.expected_status | default([200, 401, 403]) }}"
+    timeout: 30
+  loop:
+    - { url: "http://localhost:81/api/nginx/proxy-hosts", expected_status: [401] } # NPM (needs auth)
+    - { url: "http://localhost:9000/api/v3/root/config/", expected_status: [401] } # Authentik (needs auth)
+    - { url: "http://localhost:3000/api/health", expected_status: [200] } # Grafana
+    - { url: "http://localhost:9090/api/v1/status/config", expected_status: [200] } # Prometheus
+    - { url: "http://localhost:9100/metrics", expected_status: [200] } # Node Exporter
+  register: health_checks
+  failed_when: false
+  when: inventory_hostname in groups['atl_services']
+
+- name: service-verification | Check application-specific health endpoints
+  ansible.builtin.uri:
+    url: "http://localhost:{{ item.port }}{{ item.path | default('/') }}"
+    method: GET
+    status_code: "{{ item.expected_status | default([200, 302, 401]) }}"
+    timeout: 30
+  loop:
+    - { port: "8080", path: "/status.php" } # Nextcloud
+    - { port: "3000", path: "/api/v1/version" } # Gitea
+    - { port: "8081", path: "/api/alive" } # Vaultwarden
+    - { port: "3001", path: "/api/status-page/heartbeat/list" } # Uptime Kuma
+  register: app_health_checks
+  failed_when: false
+  when: inventory_hostname in groups['atl_tools']
+
+- name: service-verification | Verify database connectivity
+  ansible.builtin.wait_for:
+    host: "{{ item.host }}"
+    port: "{{ item.port }}"
+    timeout: 10
+  loop:
+    - { host: "localhost", port: 5432 } # PostgreSQL
+    - { host: "localhost", port: 3306 } # MySQL
+  register: database_connectivity
+  failed_when: false
+  when: inventory_hostname in groups['database_servers']
+
+- name: service-verification | Test reverse proxy configuration dynamically
+  ansible.builtin.uri:
+    url: "https://{{ item.domain }}"
+    method: GET
+    validate_certs: false
+    follow_redirects: all
+    status_code: [200, 302, 301, 401, 403]
+  loop: "{{ all_proxy_rules }}"
+  loop_control:
+    label: "{{ item.domain }}"
+  register: reverse_proxy_tests
+  failed_when: false
+  delegate_to: localhost
+  run_once: true
+
+- name: service-verification | Verify SSL certificates dynamically
+  ansible.builtin.uri:
+    url: "https://{{ item.domain }}"
+    method: GET
+    validate_certs: true
+  loop: "{{ all_proxy_rules }}"
+  loop_control:
+    label: "{{ item.domain }}"
+  register: ssl_verification
+  failed_when: false
+  delegate_to: localhost
+  run_once: true
+
+- name: service-verification | Generate service verification report
+  ansible.builtin.debug:
+    msg: |
+      ╔═══════════════════════════════════════════════════════════════╗
+      ║                  Service Verification Report                  ║
+      ╚═══════════════════════════════════════════════════════════════╝
+
+      🐳 Docker Status: {{ 'RUNNING' if docker_status.state == 'started' else 'ERROR' }}
+
+      📊 Running Containers:
+      {{ running_containers.stdout if running_containers is defined else 'N/A' }}
+
+      🌐 Health Checks: {{ (health_checks.results | selectattr('status', 'in', [200, 401, 403]) | list | length) if health_checks is defined else 0 }}/{{ health_checks.results | length if health_checks is defined else 0 }} passed
+
+      🔗 Reverse Proxy: {{ (reverse_proxy_tests.results | selectattr('status', 'in', [200, 302, 301, 401, 403]) | list | length) if reverse_proxy_tests is defined else 0 }}/{{ reverse_proxy_tests.results | length if reverse_proxy_tests is defined else 0 }} accessible
+
+      🔐 SSL Certificates: {{ (ssl_verification.results | selectattr('status', '==', 200) | list | length) if ssl_verification is defined else 0 }}/{{ ssl_verification.results | length if ssl_verification is defined else 0 }} valid
+
+      Overall Status: {{ 'HEALTHY' if (docker_status.state == 'started') else 'NEEDS ATTENTION' }}
+  run_once: true

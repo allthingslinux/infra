@@ -1,0 +1,90 @@
+---
+# Global variables for All Things Linux infrastructure
+# These variables apply to ALL servers across ALL environments
+
+# NOTE: Most global configuration has been moved to domains.yml
+# This file now contains only Ansible-specific variables that need
+# to be accessible as Ansible variables (not loaded from YAML config)
+
+# Ansible-specific system configuration
+ansible_system:
+  become_method: "sudo"
+  python_interpreter: "/usr/bin/python3"
+  gather_timeout: 30
+
+# Ansible-specific security variables (implementation details)
+ansible_security:
+  ssh_config_path: "/etc/ssh/sshd_config"
+  firewall_service: "ufw"
+  fail2ban_config: "/etc/fail2ban"
+# Base Package Lists
+base_packages:
+  essential:
+    - curl
+    - wget
+    - git
+    - htop
+    - vim
+    - nano
+    - unzip
+    - tar
+    - tree
+    - jq
+    - python3
+    - python3-pip
+    - python3-venv
+    - apt-transport-https
+    - ca-certificates
+    - gnupg
+    - lsb-release
+  security:
+    - fail2ban
+    - ufw
+    - unattended-upgrades
+    - logwatch
+  monitoring:
+    - htop
+    - iotop
+    - nload
+    - ncdu
+    - nethogs
+
+# Ansible-specific Docker variables (implementation paths)
+ansible_docker:
+  daemon_config_path: "/etc/docker/daemon.json"
+  compose_path: "/usr/local/bin/docker-compose"
+  service_name: "docker"
+# Ansible-specific paths and service names
+ansible_paths:
+  config_base: "/opt"
+  log_base: "/var/log"
+  backup_base: "/var/backups"
+  ssl_cert_path: "/etc/ssl/certs"
+  ssl_key_path: "/etc/ssl/private"
+
+# Common environment variables for all systems
+common_env_vars:
+  TZ: "UTC"
+  LANG: "en_US.UTF-8"
+  LC_ALL: "en_US.UTF-8"
+  DEBIAN_FRONTEND: "noninteractive"
+
+# Dynamically generate proxy rules for reverse proxy configuration
+all_proxy_rules: >-
+  {{
+    enabled_domains | dict2items | map(attribute='value') | map('combine', [{'domain': item.domain, 'host': item.domain, 'port':
+  item.port | default(80)}]) | list
+  }}
+# You may want to further customize this Jinja2 expression to match your actual domain/port mapping logic.
+
+# Example: To add custom ports or additional domains, extend all_proxy_rules like this:
+# all_proxy_rules:
+#   - domain: "nextcloud.atl.tools"
+#     host: "atl-tools-host"
+#     port: 8080
+#   - domain: "git.atl.tools"
+#     host: "atl-tools-host"
+#     port: 3000
+#   - domain: "custom.example.com"
+#     host: "custom-host"
+#     port: 1234

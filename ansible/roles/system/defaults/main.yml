@@ -1,0 +1,90 @@
+---
+# Default variables for system role
+
+# Timezone configuration
+system_timezone: "UTC"
+
+# Locale configuration
+system_locale: "en_US.UTF-8"
+system_language: "en_US:en"
+
+# Hostname configuration
+system_hostname: "{{ inventory_hostname }}"
+system_domain: "{{ domain_base | default('') }}"
+
+# Network configuration
+system_hosts_entries:
+  - ip: "127.0.0.1"
+    hostnames: ["localhost"]
+  - ip: "127.0.1.1"
+    hostnames: ["{{ system_hostname }}"]
+
+# SSH configuration
+system_ssh_port: 22
+system_ssh_permit_root_login: false
+system_ssh_password_authentication: false
+system_ssh_max_auth_tries: 3
+system_ssh_allow_users: []
+system_ssh_deny_users: []
+# Kernel parameters (sysctl)
+system_sysctl_config:
+  # Network security
+  net.ipv4.ip_forward: 0
+  net.ipv4.conf.all.send_redirects: 0
+  net.ipv4.conf.default.send_redirects: 0
+  net.ipv4.conf.all.accept_redirects: 0
+  net.ipv4.conf.default.accept_redirects: 0
+  net.ipv4.conf.all.secure_redirects: 0
+  net.ipv4.conf.default.secure_redirects: 0
+  # Memory management
+  vm.swappiness: 10
+  vm.dirty_ratio: 15
+  vm.dirty_background_ratio: 5
+
+# ATL Environment Configuration
+system_environment: "production"
+system_server_role: "server"
+
+# Environment variables
+system_environment_vars:
+  EDITOR: "vim"
+  PAGER: "less"
+
+# Cron jobs
+system_cron_jobs: []
+#  - name: "System cleanup"
+#    minute: "0"
+#    hour: "2"
+#    job: "/usr/local/bin/cleanup.sh"
+#    user: "root"
+
+# Log rotation
+system_logrotate_configs: []
+# Example configuration:
+#  - name: "custom-app"
+#    paths: ["/var/log/custom-app/*.log"]
+#    options:
+#      - "daily"
+#      - "rotate 7"
+#      - "compress"
+#      - "delaycompress"
+#      - "missingok"
+#      - "notifempty"
+
+# Default logrotate item structure (for Jinja LSP)
+system_logrotate_default_item:
+  name: "example"
+  paths: ["/var/log/example/*.log"]
+  options: ["daily", "rotate 7", "compress"]
+# System packages
+system_packages:
+  - curl
+  - wget
+  - git
+  - vim
+  - htop
+  - tree
+  - unzip
+  - rsync
+  - ntp
+  - ca-certificates

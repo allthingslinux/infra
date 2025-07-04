@@ -1,0 +1,129 @@
+# Gitleaks configuration for All Things Linux Infrastructure
+# Documentation: https://github.com/gitleaks/gitleaks#configuration
+
+title = "All Things Linux Infrastructure Gitleaks Config"
+
+# Extend the default gitleaks configuration
+[extend]
+useDefault = true
+
+# Global allowlists to reduce false positives common in infrastructure repos
+[[allowlists]]
+description = "Ignore common infrastructure false positives"
+paths = [
+  # Configuration files that may contain example secrets
+  '''\.gitleaks\.toml''',
+  '''\.gitleaksignore''',
+  '''\.secrets\.baseline''',
+  '''\.pre-commit-config\.yaml''',
+
+  # Documentation files
+  '''README\.md''',
+  '''docs/.*\.md''',
+  '''\.github/.*''',
+
+  # Terraform and Ansible files with example values
+  '''terraform/.*\.tf\.example''',
+  '''.*\.tfvars\.example''',
+  '''.*\.example\.yml''',
+  '''.*\.sample\.yml''',
+
+  # Lock files and generated files
+  '''poetry\.lock''',
+  '''go\.sum''',
+  '''package-lock\.json''',
+  '''yarn\.lock''',
+
+  # Binary and media files
+  '''.*\.(jpg|jpeg|png|gif|pdf|zip|tar|gz)$''',
+]
+
+# Regex patterns to ignore (targeting the secret, not the full match)
+regexTarget = "secret"
+regexes = [
+  # Common example/placeholder values
+  '''(example|sample|test|demo|placeholder)''',
+  '''(your|my)[-_]?(token|key|secret|password)''',
+  '''(replace|insert|enter|add)[-_]?(this|your|here)''',
+
+  # Common non-secret patterns that trigger false positives
+  '''(client|server|endpoint|localhost|127\.0\.0\.1)''',
+  '''(admin|user|username|email|domain)''',
+  '''(true|false|null|undefined|none)''',
+
+  # Version numbers and common IDs that look like secrets
+  '''^v?\d+\.\d+\.\d+''',
+  '''^[0-9a-f]{7,8}$''', # Short git hashes
+]
+
+# Common stop words to ignore
+stopwords = [
+  "example",
+  "sample",
+  "test",
+  "demo",
+  "placeholder",
+  "replace",
+  "insert",
+  "your",
+  "my",
+  "client",
+  "server",
+  "endpoint",
+  "localhost",
+  "admin",
+  "user",
+  "true",
+  "false",
+  "null",
+  "none"
+]
+
+[[allowlists]]
+description = "Ignore Ansible and Terraform template variables"
+regexTarget = "line"
+regexes = [
+  # Ansible variable patterns
+  '''\{\{\s*.*\s*\}\}''',
+  '''\$\{\{\s*.*\s*\}\}''',
+
+  # Terraform variable patterns
+  '''\$\{.*\}''',
+  '''var\..*''',
+  '''local\..*''',
+  '''data\..*''',
+
+  # Environment variable patterns
+  '''\$\{[A-Z_]+\}''',
+  '''\$[A-Z_]+''',
+]
+
+[[allowlists]]
+description = "Ignore common development and testing secrets"
+commits = [
+  # Add specific commit hashes here if needed for legacy commits with test secrets
+]
+paths = [
+  '''tests?/.*''',
+  '''spec/.*''',
+  '''.*test.*\.ya?ml''',
+  '''.*\.test\..*''',
+  '''examples?/.*''',
+  '''samples?/.*''',
+]
+
+[[allowlists]]
+description = "Ignore documentation examples"
+regexTarget = "line"
+regexes = [
+  # Lines that clearly indicate examples
+  '''#.*example''',
+  '''#.*sample''',
+  '''#.*placeholder''',
+  '''#.*replace.*with''',
+  '''#.*your.*here''',
+
+  # Code block markers in markdown
+  '''```''',
+  '''~~~''',
+]

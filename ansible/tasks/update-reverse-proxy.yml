@@ -1,0 +1,43 @@
+---
+# Update Reverse Proxy Configuration Tasks
+# Updates Nginx Proxy Manager with all service configurations
+
+- name: update-reverse-proxy | Get current proxy hosts
+  ansible.builtin.uri:
+    url: "http://{{ groups['atl_services'][0] }}:{{ npm_api_port | default('81') }}/api/nginx/proxy-hosts"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ npm_api_token }}"
+    status_code: 200
+  register: current_proxy_hosts
+  when: npm_api_token is defined
+  failed_when: false
+
+- name: update-reverse-proxy | Update ATL Services proxy rules dynamically
+  ansible.builtin.uri:
+    url: "http://{{ groups['atl_services'][0] }}:{{ npm_api_port | default('81') }}/api/nginx/proxy-hosts"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ npm_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      domain_names: ["{{ item.domain }}"]
+      forward_scheme: "http"
+      forward_host: "{{ item.host }}"
+      forward_port: "{{ item.port }}"
+      access_list_id: "0"
+      certificate_id: "new"
+      ssl_forced: true
+      http2_support: true
+      block_exploits: true
+      caching_enabled: "{{ item.cache | default(false) }}"
+      locations: "{{ item.locations | default([]) }}"
+  loop: "{{ all_proxy_rules }}"
+  when: npm_api_token is defined
+  failed_when: false
+
+- name: update-reverse-proxy | Update SSL certificates
+  ansible.builtin.debug:
+    msg: "SSL certificate update logic would go here."
+  failed_when: false

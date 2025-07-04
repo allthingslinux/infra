@@ -1,0 +1,35 @@
+# Terraform Configuration for Development Environment
+#
+# PREFERRED: Use environment variables for secrets (recommended)
+# export TF_VAR_hetzner_token="your_actual_token"
+# export TF_VAR_cloudflare_api_token="your_actual_token"
+#
+# Then run: terraform plan
+#
+# This way secrets are not stored in files at all!
+
+# SSH Configuration
+ssh_public_key_path = "~/.ssh/id_rsa.pub"
+
+# Security Configuration
+# Restrict SSH access to your IP for better security
+# allowed_ssh_ips = ["YOUR_IP_ADDRESS/32"]
+
+# Development Environment Options
+enable_monitoring = false  # Save costs in development
+enable_backups    = false  # Save costs in development
+
+# ALTERNATIVE: If you must use files (less secure)
+# Copy this to terraform.tfvars and add your tokens
+# hetzner_token = "your_hetzner_api_token_here"
+# cloudflare_api_token = "your_cloudflare_api_token_here"
+
+# SECURITY NOTE:
+# - terraform.tfvars is in .gitignore (never commit it!)
+# - Environment variables are preferred over files
+# - Use your CI/CD system's secret management for automation
+
+# To use this file:
+# 1. Copy to terraform.tfvars: cp terraform.tfvars.example terraform.tfvars
+# 2. Edit terraform.tfvars with your actual values
+# 3. Never commit terraform.tfvars to git (it's in .gitignore)

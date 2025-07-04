@@ -1,0 +1,24 @@
+# Gitleaks ignore file for All Things Linux Infrastructure
+# This file contains fingerprints of findings that should be ignored
+# Each line should contain a finding fingerprint that you want to ignore
+#
+# To get the fingerprint of a finding, run gitleaks and copy the
+# "Fingerprint" value from the output
+#
+# Example:
+# abc123def456:path/to/file.txt:rule-id:42
+#
+# You can also add comments by starting lines with #
+
+# Example ignored findings (remove these and add your actual fingerprints):
+# 1234567890abcdef:docs/example.md:generic-api-key:15
+# abcdef1234567890:terraform/example.tf:aws-access-token:23
+
+# Legacy findings that existed before gitleaks implementation
+# (Add fingerprints here for any secrets that were already present and approved)
+
+# Approved test/example secrets in documentation
+# (Add fingerprints for secrets in docs that are safe examples)
+
+# Infrastructure template secrets that are replaced in deployment
+# (Add fingerprints for template values that look like secrets but aren't real)

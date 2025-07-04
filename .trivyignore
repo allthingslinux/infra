@@ -1,0 +1,16 @@
+# Trivy ignore file for Terraform security scanning
+# Documentation: https://aquasecurity.github.io/trivy/latest/docs/vulnerability/examples/filter/
+
+# Common false positives or acceptable risks for non-profit infrastructure
+
+# Cloudflare-specific ignores (if any are too noisy)
+# AVD-CF-0001  # Example Cloudflare rule to ignore
+
+# Hetzner Cloud-specific ignores
+# AVD-HET-0001  # Example Hetzner rule to ignore
+
+# General infrastructure ignores
+# AVD-GEN-0001  # Example generic rule to ignore
+
+# Temporary ignores (should be reviewed and removed)
+# AVD-TMP-0001  # Temporary ignore with expiration date: 2024-12-31

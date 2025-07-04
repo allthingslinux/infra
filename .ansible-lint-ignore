@@ -1,0 +1,32 @@
+# Ansible Lint Ignore File for All Things Linux Infrastructure
+# Format: filename rule-id [skip] [# comment]
+#
+# Using this file is preferred over skip_list in .ansible-lint because
+# it makes ignored rules visible in output, helping track technical debt
+#
+# Add 'skip' keyword to completely suppress warnings for that rule
+# Without 'skip', rules are ignored but still show as warnings
+
+# Bootstrap playbook exceptions
+playbooks/infrastructure/bootstrap.yml name[template]  # Bootstrap tasks have specific naming patterns
+playbooks/infrastructure/bootstrap.yml command-instead-of-shell  # Some system commands require shell
+
+# Service deployment exceptions
+playbooks/services/discord-bot.yml name[template]  # Service tasks follow different naming convention
+playbooks/services/discord-bot.yml risky-shell-pipe  # Docker commands may require shell pipes
+
+# Staff management exceptions
+playbooks/users/staff-management.yml name[template]  # User management tasks have specific patterns
+playbooks/users/staff-management.yml no-changed-when  # Some user tasks don't support changed_when
+
+# Inventory file exceptions
+inventories/production.yml yaml[line-length]  # Long server configurations for readability
+inventories/staging.yml yaml[line-length]  # Long server configurations for readability
+
+# Group variables exceptions
+group_vars/all.yml yaml[line-length]  # Configuration blocks may be long for clarity
+group_vars/staff.yml yaml[line-length]  # Staff role definitions may be lengthy
+
+# Template and file exceptions (when they exist)
+# templates/nginx.conf.j2 jinja[spacing] skip  # Nginx config formatting takes precedence
+# files/ssl/dhparam.pem yaml[document-start] skip  # Not a YAML file

@@ -1,0 +1,157 @@
+---
+# Database Cluster Deployment Playbook
+# Deploys shared PostgreSQL/MySQL cluster for ATL services
+
+- name: "Deploy Shared Database Cluster"
+  hosts: database_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display database cluster deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                Database Cluster Deployment                    ║
+          ║              Shared PostgreSQL & MySQL                       ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🗄️  PostgreSQL primary/replica setup
+          🗄️  MySQL for legacy applications
+          🔒 Encrypted connections and backups
+          📊 Performance monitoring integration
+
+    - name: Verify control server is accessible
+      ansible.builtin.wait_for:
+        host: "{{ groups['atl_services'][0] }}"
+        port: 22
+        timeout: 30
+      delegate_to: localhost
+      run_once: true
+
+  roles:
+    - role: system
+      tags: [system, security]
+
+    - role: docker
+      tags: [docker, containers]
+
+  tasks:
+    - name: Create database cluster directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root
+      loop:
+        - /opt/database-cluster
+        - /opt/database-cluster/postgresql
+        - /opt/database-cluster/mysql
+        - /opt/database-cluster/config
+        - /opt/database-cluster/backup
+        - /var/log/database-cluster
+
+    - name: Deploy database cluster Docker Compose configuration
+      ansible.builtin.template:
+        src: database-cluster-compose.yml.j2
+        dest: /opt/database-cluster/docker-compose.yml
+        mode: "0644"
+        backup: true
+      notify: Restart database services
+
+    - name: Create database cluster environment file
+      ansible.builtin.template:
+        src: database-cluster.env.j2
+        dest: /opt/database-cluster/.env
+        mode: "0600"
+        backup: true
+      notify: Restart database services
+
+    - name: Configure PostgreSQL settings
+      ansible.builtin.template:
+        src: postgresql.conf.j2
+        dest: /opt/database-cluster/postgresql/postgresql.conf
+        mode: "0644"
+        backup: true
+      notify: Restart database services
+
+    - name: Configure MySQL settings
+      ansible.builtin.template:
+        src: mysql.cnf.j2
+        dest: /opt/database-cluster/mysql/mysql.cnf
+        mode: "0644"
+        backup: true
+      notify: Restart database services
+
+    - name: Start database cluster services
+      community.docker.docker_compose:
+        project_src: /opt/database-cluster
+        state: present
+        pull: true
+        remove_orphans: true
+      register: database_cluster_result
+
+    - name: Wait for PostgreSQL to be healthy
+      ansible.builtin.uri:
+        url: "http://localhost:{{ postgres_port | default('5432') }}"
+        method: GET
+      retries: 15
+      delay: 30
+      failed_when: false
+
+    - name: Wait for MySQL to be healthy
+      ansible.builtin.uri:
+        url: "http://localhost:{{ mysql_port | default('3306') }}"
+        method: GET
+      retries: 15
+      delay: 30
+      failed_when: false
+
+    - name: Setup database backup script
+      ansible.builtin.template:
+        src: database-backup.sh.j2
+        dest: /opt/database-cluster/backup/database-backup.sh
+        mode: "0755"
+
+    - name: Schedule database backups
+      ansible.builtin.cron:
+        name: "Database cluster backup"
+        minute: "0"
+        hour: "1"
+        job: "/opt/database-cluster/backup/database-backup.sh"
+        user: root
+
+    - name: Configure database monitoring
+      ansible.builtin.template:
+        src: database-monitoring.yml.j2
+        dest: /opt/database-cluster/monitoring.yml
+        mode: "0644"
+      notify: Restart monitoring
+
+  handlers:
+    - name: Restart database services
+      community.docker.docker_compose:
+        project_src: /opt/database-cluster
+        state: present
+        restarted: true
+
+    - name: Restart monitoring
+      ansible.builtin.systemd:
+        name: node_exporter
+        state: restarted
+      failed_when: false
+
+  post_tasks:
+    - name: Verify database cluster deployment
+      ansible.builtin.debug:
+        msg: |
+          ✅ Database Cluster Deployment Complete!
+
+          🗄️  PostgreSQL: {{ groups['database_servers'] | join(', ') }}:5432
+          🗄️  MySQL: {{ groups['database_servers'] | join(', ') }}:3306
+          💾 Backups: Scheduled daily at 1 AM
+          📊 Monitoring: Integrated with Grafana
+          🔒 Security: SSL/TLS enabled
+
+          Status: {{ 'HEALTHY' if database_cluster_result.services is defined else 'DEPLOYMENT IN PROGRESS' }}

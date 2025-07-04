@@ -1,0 +1,36 @@
+---
+# Domains Configuration Loader
+# This file loads the centralized domains.yml configuration and makes it
+# available to Ansible playbooks as the 'domains_config' variable
+
+# Load the centralized configuration
+domains_config: "{{ lookup('file', playbook_dir + '/../domains.yml') | from_yaml }}"
+
+# Extract commonly used values for convenience
+project_name: "{{ domains_config.global.project_name }}"
+deployment_environment: "{{ domains_config.global.environment }}"
+organization: "{{ domains_config.global.organization }}"
+
+# Extract enabled domains for easy iteration
+enabled_domains: >-
+  {{
+    domains_config.domains | dict2items |
+    selectattr('value.enabled', 'equalto', true) |
+    rejectattr('value.external', 'defined') |
+    items2dict
+  }}
+
+# Extract enabled shared infrastructure
+enabled_shared_infrastructure: >-
+  {{
+    domains_config.shared_infrastructure | dict2items |
+    selectattr('value.enabled', 'equalto', true) |
+    items2dict
+  }}
+
+# Global configuration shortcuts for common use
+global_config: "{{ domains_config.global }}"
+security_config: "{{ domains_config.global.security }}"
+monitoring_config: "{{ domains_config.global.monitoring }}"
+backup_config: "{{ domains_config.global.backup }}"
+docker_config: "{{ domains_config.global.docker }}"

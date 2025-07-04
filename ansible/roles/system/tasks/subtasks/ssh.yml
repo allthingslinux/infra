@@ -1,0 +1,42 @@
+---
+# SSH configuration
+
+- name: subtasks | ssh | Configure SSH daemon
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    backup: true
+    validate: "/usr/sbin/sshd -t -f %s"
+  loop:
+    - { regexp: "^#?Port", line: "Port {{ system_ssh_port }}" }
+    - regexp: "^#?PermitRootLogin"
+      line: "PermitRootLogin {{ 'yes' if system_ssh_permit_root_login else 'no' }}"
+    - regexp: "^#?PasswordAuthentication"
+      line: "PasswordAuthentication {{ 'yes' if system_ssh_password_authentication else 'no' }}"
+    - { regexp: "^#?PubkeyAuthentication", line: "PubkeyAuthentication yes" }
+    - { regexp: "^#?MaxAuthTries", line: "MaxAuthTries {{ system_ssh_max_auth_tries }}" }
+    - { regexp: "^#?X11Forwarding", line: "X11Forwarding no" }
+    - { regexp: "^#?ClientAliveInterval", line: "ClientAliveInterval 300" }
+    - { regexp: "^#?ClientAliveCountMax", line: "ClientAliveCountMax 2" }
+  notify: restart ssh
+
+- name: subtasks | ssh | Configure SSH allowed users
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    line: "AllowUsers {{ system_ssh_allow_users | join(' ') }}"
+    regexp: "^#?AllowUsers"
+    backup: true
+    validate: "/usr/sbin/sshd -t -f %s"
+  when: system_ssh_allow_users | length > 0
+  notify: restart ssh
+
+- name: subtasks | ssh | Configure SSH denied users
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    line: "DenyUsers {{ system_ssh_deny_users | join(' ') }}"
+    regexp: "^#?DenyUsers"
+    backup: true
+    validate: "/usr/sbin/sshd -t -f %s"
+  when: system_ssh_deny_users | length > 0
+  notify: restart ssh

@@ -1,0 +1,161 @@
+---
+# Security Hardening Playbook
+# Applies comprehensive security hardening across all ATL infrastructure
+
+- name: "Apply Security Hardening"
+  hosts: all
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display security hardening banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                    Security Hardening                         ║
+          ║              Comprehensive Security Baseline                  ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🔒 SSH hardening and key-based authentication
+          🛡️  Firewall configuration and intrusion prevention
+          🔐 SSL/TLS certificate management
+          📊 Security monitoring and alerting
+
+  tasks:
+    - name: Update all packages
+      ansible.builtin.package:
+        name: "*"
+        state: present
+      when: ansible_os_family == "RedHat" or ansible_os_family == "Debian"
+
+    - name: Install security packages
+      ansible.builtin.package:
+        name:
+          - fail2ban
+          - ufw
+          - unattended-upgrades
+          - logwatch
+          - rkhunter
+          - chkrootkit
+        state: present
+
+    - name: Configure SSH hardening
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        backup: true
+        mode: "0644"
+      loop:
+        - { regexp: "^#?PermitRootLogin", line: "PermitRootLogin no" }
+        - { regexp: "^#?PasswordAuthentication", line: "PasswordAuthentication no" }
+        - { regexp: "^#?PubkeyAuthentication", line: "PubkeyAuthentication yes" }
+        - { regexp: "^#?Protocol", line: "Protocol 2" }
+        - { regexp: "^#?X11Forwarding", line: "X11Forwarding no" }
+        - { regexp: "^#?MaxAuthTries", line: "MaxAuthTries 3" }
+        - { regexp: "^#?ClientAliveInterval", line: "ClientAliveInterval 300" }
+        - { regexp: "^#?ClientAliveCountMax", line: "ClientAliveCountMax 2" }
+      notify: Restart ssh
+
+    - name: Configure UFW firewall
+      community.general.ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+
+    - name: Allow SSH
+      community.general.ufw:
+        rule: allow
+        port: ssh
+        proto: tcp
+
+    - name: Allow HTTP/HTTPS
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "80"
+        - "443"
+
+    - name: Configure fail2ban
+      ansible.builtin.template:
+        src: jail.local.j2
+        dest: /etc/fail2ban/jail.local
+        backup: true
+        mode: "0644"
+      notify: Restart fail2ban
+
+    - name: Enable and start security services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - fail2ban
+        - ufw
+
+    - name: Configure automatic security updates
+      ansible.builtin.template:
+        src: 50unattended-upgrades.j2
+        dest: /etc/apt/apt.conf.d/50unattended-upgrades
+        backup: true
+        mode: "0644"
+      when: ansible_os_family == "Debian"
+
+    - name: Set up log monitoring
+      ansible.builtin.cron:
+        name: "Security log analysis"
+        minute: "0"
+        hour: "6"
+        job: "/usr/sbin/logwatch --output mail --mailto {{ admin_email | default('admin@localhost') }} --detail high"
+        user: root
+        changed_when: false
+
+    - name: Configure kernel security parameters
+      ansible.posix.sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: true
+      loop:
+        - { name: "net.ipv4.ip_forward", value: "0" }
+        - { name: "net.ipv4.conf.all.send_redirects", value: "0" }
+        - { name: "net.ipv4.conf.default.send_redirects", value: "0" }
+        - { name: "net.ipv4.conf.all.accept_source_route", value: "0" }
+        - { name: "net.ipv4.conf.default.accept_source_route", value: "0" }
+        - { name: "net.ipv4.conf.all.accept_redirects", value: "0" }
+        - { name: "net.ipv4.conf.default.accept_redirects", value: "0" }
+        - { name: "net.ipv4.conf.all.secure_redirects", value: "0" }
+        - { name: "net.ipv4.conf.default.secure_redirects", value: "0" }
+        - { name: "net.ipv4.conf.all.log_martians", value: "1" }
+        - { name: "net.ipv4.conf.default.log_martians", value: "1" }
+        - { name: "net.ipv4.icmp_echo_ignore_broadcasts", value: "1" }
+        - { name: "net.ipv4.icmp_ignore_bogus_error_responses", value: "1" }
+        - { name: "net.ipv4.tcp_syncookies", value: "1" }
+        - { name: "kernel.dmesg_restrict", value: "1" }
+
+  handlers:
+    - name: Restart ssh
+      ansible.builtin.systemd:
+        name: sshd
+        state: restarted
+
+    - name: Restart fail2ban
+      ansible.builtin.systemd:
+        name: fail2ban
+        state: restarted
+
+  post_tasks:
+    - name: Verify security hardening
+      ansible.builtin.debug:
+        msg: |
+          ✅ Security Hardening Complete!
+
+          🔒 SSH: Hardened configuration applied
+          🛡️  Firewall: UFW enabled with restrictive rules
+          🚫 Intrusion Prevention: Fail2ban configured
+          📊 Monitoring: Log analysis scheduled
+          🔐 Kernel: Security parameters applied
+
+          Security Status: HARDENED

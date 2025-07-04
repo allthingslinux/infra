@@ -1,0 +1,11 @@
+# Logrotate configuration for {{ item.name | default(system_logrotate_default_item.name) }}
+# This file is managed by Ansible - do not edit manually
+
+{% for path in item.paths | default(system_logrotate_default_item.paths) %}
+{{ path }}
+{% endfor %}
+{
+{% for option in item.options | default(system_logrotate_default_item.options) %}
+{{ option }}
+{% endfor %}
+}

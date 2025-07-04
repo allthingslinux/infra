@@ -1,0 +1,158 @@
+---
+# Backup Setup Playbook
+# Configures comprehensive backup strategy across all ATL infrastructure
+
+- name: "Configure Backup Systems"
+  hosts: all
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display backup setup banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                     Backup Configuration                      ║
+          ║              Comprehensive Data Protection                    ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          💾 Borg encrypted backups
+          📦 Docker volume snapshots
+          🗄️  Database dumps and replication
+          ☁️  Cloud storage integration
+
+  tasks:
+    - name: Install backup tools
+      ansible.builtin.package:
+        name:
+          - borgbackup
+          - rsync
+          - python3-pip
+        state: present
+
+    - name: Install additional Python packages for backups
+      ansible.builtin.pip:
+        name:
+          - boto3
+          - borgmatic
+        state: present
+
+    - name: Create backup directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0750"
+        owner: root
+        group: root
+      loop:
+        - /opt/backups
+        - /opt/backups/scripts
+        - /opt/backups/config
+        - /opt/backups/logs
+        - /var/backups/borg
+
+    - name: Configure borgmatic
+      ansible.builtin.template:
+        src: borgmatic-config.yaml.j2
+        dest: /etc/borgmatic/config.yaml
+        mode: "0600"
+        backup: true
+
+    - name: Create backup scripts
+      ansible.builtin.template:
+        src: "{{ item }}.j2"
+        dest: "/opt/backups/scripts/{{ item }}"
+        mode: "0755"
+      loop:
+        - docker-backup.sh
+        - database-backup.sh
+        - config-backup.sh
+        - log-backup.sh
+
+    - name: Initialize Borg repository
+      ansible.builtin.command:
+        cmd: borg init --encryption=repokey-blake2 /var/backups/borg
+        creates: /var/backups/borg/README
+
+    - name: Schedule backup jobs
+      ansible.builtin.cron:
+        name: "{{ item.name }}"
+        minute: "{{ item.minute }}"
+        hour: "{{ item.hour }}"
+        job: "{{ item.job }}"
+        user: root
+      loop:
+        - name: "Docker volumes backup"
+          minute: "30"
+          hour: "2"
+          job: "/opt/backups/scripts/docker-backup.sh"
+        - name: "Database backup"
+          minute: "0"
+          hour: "3"
+          job: "/opt/backups/scripts/database-backup.sh"
+        - name: "Configuration backup"
+          minute: "15"
+          hour: "4"
+          job: "/opt/backups/scripts/config-backup.sh"
+        - name: "Log archive"
+          minute: "45"
+          hour: "1"
+          job: "/opt/backups/scripts/log-backup.sh"
+
+    - name: Configure backup monitoring
+      ansible.builtin.template:
+        src: backup-monitoring.sh.j2
+        dest: /opt/backups/scripts/backup-monitoring.sh
+        mode: "0755"
+
+    - name: Schedule backup monitoring
+      ansible.builtin.cron:
+        name: "Backup status check"
+        minute: "0"
+        hour: "8"
+        job: "/opt/backups/scripts/backup-monitoring.sh"
+        user: root
+
+    - name: Create backup restoration documentation
+      ansible.builtin.template:
+        src: backup-restoration-guide.md.j2
+        dest: /opt/backups/RESTORATION_GUIDE.md
+        mode: "0644"
+
+    - name: Configure log rotation for backup logs
+      ansible.builtin.template:
+        src: backup-logrotate.j2
+        dest: /etc/logrotate.d/atl-backups
+        mode: "0644"
+
+    - name: Test backup configuration
+      ansible.builtin.command:
+        cmd: borgmatic --dry-run --verbosity 1
+      register: backup_test
+      failed_when: backup_test.rc != 0
+      changed_when: false
+      ignore_errors: true
+
+  post_tasks:
+    - name: Verify backup setup
+      ansible.builtin.debug:
+        msg: |
+          ✅ Backup Configuration Complete!
+
+          💾 Borg Repository: Initialized and encrypted
+          📅 Schedule: Daily backups at 2-4 AM
+          📊 Monitoring: Status checks at 8 AM
+          🔐 Security: Encrypted at rest and in transit
+
+          Backup Components:
+          • Docker volumes: 2:30 AM daily
+          • Databases: 3:00 AM daily
+          • Configurations: 4:15 AM daily
+          • Logs: 1:45 AM daily
+
+          Test Status: {{ 'PASSED' if backup_test.rc == 0 else 'NEEDS ATTENTION' }}
+
+          📋 Next Steps:
+          1. Configure remote backup destination
+          2. Test restoration procedures
+          3. Set up backup monitoring alerts

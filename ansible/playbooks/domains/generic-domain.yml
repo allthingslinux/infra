@@ -1,0 +1,226 @@
+---
+# Generic Domain Deployment Playbook
+# Works with any domain configuration from domains.yml
+#
+# REQUIRED: target_domain must be passed as an extra variable
+# Example: ansible-playbook generic-domain.yml --extra-vars "target_domain=atl_chat"
+
+- name: "Validate Required Variables"
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Default value for linting - MUST be overridden with --extra-vars
+    target_domain: "UNDEFINED"
+  tasks:
+    - name: Ensure target_domain is provided
+      ansible.builtin.assert:
+        that:
+          - target_domain is defined
+          - target_domain != "UNDEFINED"
+          - target_domain | length > 0
+        fail_msg: |
+          ERROR: target_domain variable is required but not provided.
+
+          Usage: ansible-playbook generic-domain.yml --extra-vars "target_domain=DOMAIN_NAME"
+
+          Available domains: atl_services, atl_tools, atl_dev, atl_chat, atl_wiki
+        success_msg: "Target domain variable validated: {{ target_domain }}"
+
+- name: "Load Domain Configuration"
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Load domains configuration
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../domains.yml"
+        name: domains_config
+
+    - name: Validate target domain exists and is enabled
+      ansible.builtin.assert:
+        that:
+          - target_domain in domains_config.domains
+          - domains_config.domains[target_domain].enabled | default(false)
+        fail_msg: "Target domain '{{ target_domain }}' is not defined or not enabled in domains.yml"
+        success_msg: "Target domain '{{ target_domain }}' validated successfully"
+
+    - name: Set domain configuration facts
+      ansible.builtin.set_fact:
+        domain_config: "{{ domains_config.domains[target_domain] }}"
+        service_dir: "/opt/{{ target_domain }}"
+        service_name: "{{ target_domain | replace('_', '-') }}"
+
+- name: "Deploy Domain Services"
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    # Load configuration from localhost
+    domain_config: "{{ hostvars['localhost']['domain_config'] }}"
+    service_dir: "{{ hostvars['localhost']['service_dir'] }}"
+    service_name: "{{ hostvars['localhost']['service_name'] }}"
+
+  pre_tasks:
+    - name: Verify this host matches target domain
+      ansible.builtin.assert:
+        that:
+          - target_domain is defined
+          - inventory_hostname in groups[target_domain]
+        fail_msg: "This host {{ inventory_hostname }} is not in the {{ target_domain }} group"
+        success_msg: "Host {{ inventory_hostname }} validated for domain {{ target_domain }}"
+
+    - name: Display deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║ {{ domain_config.domain | upper | center(61) }} ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🎯 Role: {{ target_domain }}
+          🌐 Domain: {{ domain_config.domain }}
+          🛠️  Services: {{ domain_config.services | join(', ') }}
+          📁 Service Directory: {{ service_dir }}
+          {% if domain_config.subdomains is defined %}
+          📎 Subdomains: {{ domain_config.subdomains | join(', ') }}
+          {% endif %}
+
+    - name: Verify control server is accessible
+      ansible.builtin.wait_for:
+        host: "{{ groups['atl_services'][0] }}"
+        port: 22
+        timeout: 30
+      delegate_to: localhost
+      run_once: true
+      when:
+        - groups['atl_services'] is defined
+        - target_domain != "atl_services"
+
+  roles:
+    - role: system
+      tags: [system, security]
+    - role: docker
+      tags: [docker, containers]
+      when: "'docker' in domain_config.services"
+
+  tasks:
+    - name: "Create directories for {{ target_domain }}"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root
+      loop:
+        - "{{ service_dir }}"
+        - "{{ service_dir }}/config"
+        - "{{ service_dir }}/data"
+        - "{{ service_dir }}/logs"
+        - "/var/log/{{ target_domain }}"
+        # Add service-specific directories
+        - "{{ service_dir }}/backup"
+
+    - name: "Deploy Docker Compose configuration for {{ target_domain }}"
+      ansible.builtin.template:
+        src: "{{ target_domain }}-compose.yml.j2"
+        dest: "{{ service_dir }}/docker-compose.yml"
+        mode: "0644"
+        backup: true
+      notify: "Restart services for {{ target_domain }}"
+
+    - name: "Create environment file for {{ target_domain }}"
+      ansible.builtin.template:
+        src: "{{ target_domain }}.env.j2"
+        dest: "{{ service_dir }}/.env"
+        mode: "0600"
+        backup: true
+      notify: "Restart services for {{ target_domain }}"
+
+    - name: "Start services for {{ target_domain }}"
+      community.docker.docker_compose:
+        project_src: "{{ service_dir }}"
+        state: present
+        pull: true
+        remove_orphans: true
+      register: domain_result
+
+    - name: "Wait for services to be healthy for {{ target_domain }}"
+      ansible.builtin.uri:
+        url: "http://localhost:{{ domain_config.port | default('8080') }}/health"
+        method: GET
+        status_code: 200
+      retries: 10
+      delay: 30
+      failed_when: false
+
+    - name: "Register with reverse proxy for {{ target_domain }}"
+      ansible.builtin.uri:
+        url: "http://{{ groups['atl_services'][0] }}:{{ npm_api_port | default('81') }}/api/nginx/proxy-hosts"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ npm_api_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          domain_names:
+            - "{{ domain_config.domain }}"
+            - "{{ 'staging.' + domain_config.domain if environment == 'staging' else '' }}"
+          forward_scheme: "http"
+          forward_host: "{{ ansible_default_ipv4.address }}"
+          forward_port: "{{ domain_config.port | default('8080') }}"
+          access_list_id: "0"
+          certificate_id: "new"
+          ssl_forced: true
+          http2_support: true
+          block_exploits: true
+          allow_websocket_upgrade: true
+          hsts_enabled: true
+      delegate_to: localhost
+      failed_when: false
+      when:
+        - npm_api_token is defined
+        - groups['atl_services'] is defined
+        - target_domain != "atl_services"
+
+    - name: "Open required ports for {{ target_domain }}"
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop: "{{ domain_config.ports | default([]) }}"
+      when: domain_config.ports is defined
+
+    - name: "Configure monitoring for {{ target_domain }}"
+      ansible.builtin.template:
+        src: "{{ target_domain }}-monitoring.yml.j2"
+        dest: "{{ service_dir }}/monitoring.yml"
+        mode: "0644"
+      notify: Restart monitoring
+      when: domain_config.monitoring.enabled | default(false)
+
+  handlers:
+    - name: "Restart services for {{ target_domain }}"
+      community.docker.docker_compose:
+        project_src: "{{ service_dir }}"
+        state: present
+        restarted: true
+
+    - name: Restart monitoring
+      ansible.builtin.systemd:
+        name: node_exporter
+        state: restarted
+      failed_when: false
+
+  post_tasks:
+    - name: "Verify deployment for {{ target_domain }}"
+      ansible.builtin.debug:
+        msg: |
+          ✅ {{ domain_config.domain | upper }} Deployment Complete!
+
+          🌐 Domain: https://{{ domain_config.domain }}
+          {% if domain_config.subdomains is defined %}
+          {% for subdomain in domain_config.subdomains %}
+          🔗 {{ subdomain }}: https://{{ subdomain }}.{{ domain_config.domain }}
+          {% endfor %}
+          {% endif %}
+          📊 Monitoring: {{ 'Enabled' if domain_config.monitoring.enabled | default(false) else 'Disabled' }}
+
+          Status: {{ 'HEALTHY' if domain_result.services is defined else 'DEPLOYMENT IN PROGRESS' }}

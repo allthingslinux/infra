@@ -1,0 +1,19 @@
+---
+# Environment variable configuration
+
+- name: subtasks | environment | Configure system environment variables
+  ansible.builtin.lineinfile:
+    path: /etc/environment
+    line: "{{ item.key }}={{ item.value }}"
+    regexp: "^{{ item.key }}="
+    backup: true
+    create: true
+    mode: "0644"
+  loop: "{{ system_environment_vars | dict2items }}"
+
+- name: subtasks | environment | Create profile.d script for ATL environment
+  ansible.builtin.template:
+    src: atl-environment.sh.j2
+    dest: /etc/profile.d/atl_environment.sh
+    mode: "0644"
+    backup: true

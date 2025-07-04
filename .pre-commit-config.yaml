@@ -1,0 +1,202 @@
+---
+# Pre-commit configuration for All Things Linux Infrastructure
+# Based on: https://ansible.readthedocs.io/projects/lint/en/latest/configuration/
+
+ci:
+  # This section is specific to pre-commit.ci
+  autoupdate_schedule: monthly
+
+repos:
+  # Ansible Lint
+  - repo: https://github.com/ansible/ansible-lint
+    rev: v24.12.2 # Use latest release from https://github.com/ansible/ansible-lint/releases/
+    hooks:
+      - id: ansible-lint
+        name: Ansible Lint
+        description: Run ansible-lint on Ansible playbooks
+        files: \.(yml|yaml)$
+        # Install full Ansible community bundle for better collection support
+        additional_dependencies:
+          - ansible>=8.0.0
+        args:
+          - --strict
+        exclude: |
+          (?x)^(
+            \.cache/.*|
+            logs/.*|
+            \.requirements_installed|
+            .*node_modules/.*|
+            .*venv/.*|
+            .*\.venv/.*|
+            files/secrets/.*|
+            host_vars/secrets/.*|
+            group_vars/secrets/.*
+          )$
+
+  # YAML Linting
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        name: YAML Lint
+        description: Check YAML syntax and formatting
+        args:
+          - --config-file=.yamllint.yml
+        exclude: |
+          (?x)^(
+            \.cache/.*|
+            logs/.*|
+            \.ansible-lint-ignore
+          )$
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim Trailing Whitespace
+        exclude: |
+          (?x)^(
+            \.cache/.*|
+            logs/.*
+          )$
+      - id: end-of-file-fixer
+        name: Fix End of Files
+        exclude: |
+          (?x)^(
+            \.cache/.*|
+            logs/.*
+          )$
+      - id: check-yaml
+        name: Check YAML
+        args: ["--multi", "--unsafe"]
+        exclude: |
+          (?x)^(
+            \.ansible-lint-ignore|
+            \.cache/.*|
+            logs/.*
+          )$
+      - id: check-added-large-files
+        name: Check for Large Files
+        args: ["--maxkb=1024"]
+      - id: check-merge-conflict
+        name: Check for Merge Conflicts
+      - id: check-executables-have-shebangs
+        name: Check Executables Have Shebangs
+      - id: check-shebang-scripts-are-executable
+        name: Check Shebang Scripts Are Executable
+        exclude: |
+          (?x)^(
+            \.cache/.*|
+            logs/.*|
+            .*\.j2$|
+            .*templates/.*
+          )$
+
+  # Security scanning
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.27.2
+    hooks:
+      - id: gitleaks
+        name: Gitleaks Secret Detection
+        description: Detect hardcoded secrets like passwords, api keys, and tokens in git repos
+        exclude: |
+          (?x)^(
+            \.cache/.*|
+            logs/.*|
+            \.gitleaks\.toml|
+            \.gitleaksignore
+          )$
+
+  # Shell script linting and formatting
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        name: Shell Script Lint
+        files: \.(sh|bash)$
+        exclude: |
+          (?x)^(
+            \.cache/.*|
+            logs/.*
+          )$
+
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.8.0-1
+    hooks:
+      - id: shfmt
+        name: Shell Script Format
+        files: \.(sh|bash)$
+        args: [-w, -s, -i, "4"]
+        exclude: |
+          (?x)^(
+            \.cache/.*|
+            logs/.*
+          )$
+
+  # Terraform hooks
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.99.4 # Use latest release from https://github.com/antonbabenko/pre-commit-terraform/releases
+    hooks:
+      - id: terraform_fmt
+        name: Terraform Format
+        description: Reformat all Terraform configuration files to a canonical format
+
+      - id: terraform_validate
+        name: Terraform Validate
+        description: Validates all Terraform configuration files
+        args:
+          - --hook-config=--retry-once-with-cleanup=true
+        exclude: |
+          (?x)^(
+            \.cache/.*|
+            logs/.*
+          )$
+
+      - id: terraform_docs
+        name: Terraform Docs
+        description: Inserts input and output documentation into README.md
+        args:
+          - --hook-config=--path-to-file=README.md
+          - --hook-config=--add-to-existing-file=true
+          - --hook-config=--create-file-if-not-exist=true
+        exclude: |
+          (?x)^(
+            \.cache/.*|
+            logs/.*
+          )$
+
+      - id: terraform_tflint
+        name: Terraform TFLint
+        description: Validates all Terraform configuration files with TFLint
+        args:
+          - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
+          - --args=--module
+        exclude: |
+          (?x)^(
+            \.cache/.*|
+            logs/.*
+          )$
+
+      - id: terraform_trivy
+        name: Terraform Trivy Security Scan
+        description: Static analysis of Terraform templates to spot potential security issues
+        args:
+          - --args=--format=json
+          - --args=--skip-dirs="**/.terraform"
+        exclude: |
+          (?x)^(
+            \.cache/.*|
+            logs/.*
+          )$
+
+      - id: terraform_providers_lock
+        name: Terraform Provider Lock
+        description: Updates provider signatures in dependency lock files
+        args:
+          - --hook-config=--mode=only-check-is-current-lockfile-cross-platform
+        exclude: |-
+          (?x)^(
+            \.cache/.*|
+            logs/.*
+          )$

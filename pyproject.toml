@@ -1,0 +1,58 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "allthingslinux-infra"
+version = "1.0.0"
+description = "Infrastructure management for All Things Linux - Ansible automation for 10,000+ member community"
+authors = ["AllThingsLinux Infrastructure Team"]
+readme = "README.md"
+package-mode = true
+packages = [{ include = "scripts" }]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+# Core Ansible
+ansible = ">=8.0.0"
+ansible-core = ">=2.16.11"
+ansible-runner = ">=2.3.0"
+
+# Cloud and Infrastructure
+docker = ">=6.0.0"
+PyYAML = ">=6.0.0"
+Jinja2 = ">=3.1.0"
+
+# Networking and HTTP
+requests = ">=2.28.0"
+urllib3 = ">=1.26.0"
+
+# Utility
+rich = ">=13.0.0"    # Better terminal output
+click = ">=8.1.0"    # CLI utilities
+tabulate = ">=0.9.0" # Table formatting
+
+# Documentation automation tools
+mkdocs = ">=1.5.0"
+mkdocs-material = ">=9.4.0"
+pymdown-extensions = ">=10.0.0"
+mkdocs-mermaid2-plugin = ">=1.1.0"
+mkdocs-include-markdown-plugin = ">=6.0.0"
+mkdocs-minify-plugin = ">=0.7.1"
+pillow = ">=10.1.0"
+cairosvg = ">=2.7.1"
+
+
+[tool.poetry.group.dev.dependencies]
+# Development and Testing
+pytest = ">=7.2.0"
+pytest-ansible = ">=4.1.0"
+molecule = ">=5.0.0"
+molecule-plugins = ">=23.4.0"
+
+# Code Quality
+ansible-lint = ">=6.22.0"
+
+
+[tool.poetry.scripts]
+atl = "scripts.cli:cli"

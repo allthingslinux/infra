@@ -1,0 +1,97 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Ansible Lint (Auto-fix)",
+            "type": "shell",
+            "command": "ansible-lint",
+            "args": [
+                "--fix",
+                "--offline",
+                "${file}"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "detail": "Run ansible-lint with auto-fix on the current file"
+        },
+        {
+            "label": "Ansible Lint All (Auto-fix)",
+            "type": "shell",
+            "command": "ansible-lint",
+            "args": [
+                "--fix",
+                "--offline",
+                "playbooks/"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "detail": "Run ansible-lint with auto-fix on all playbooks"
+        },
+        {
+            "label": "Ansible Lint (Check Only)",
+            "type": "shell",
+            "command": "ansible-lint",
+            "args": [
+                "--offline",
+                "${file}"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "ansible-lint",
+                    "fileLocation": "relative",
+                    "pattern": {
+                        "regexp": "^(.*):(\\d+): \\[(.*)\\] (.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "code": 3,
+                        "message": 4
+                    }
+                }
+            ],
+            "detail": "Run ansible-lint check on the current file"
+        }
+    ]
+}

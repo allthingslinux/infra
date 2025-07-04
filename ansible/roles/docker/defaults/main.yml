@@ -1,0 +1,8 @@
+---
+# Default variables for docker role
+
+# Users to add to the docker group
+docker_users: []
+# Docker service state
+docker_service_state: started
+docker_service_enabled: true

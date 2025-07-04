@@ -1,0 +1,20 @@
+---
+# Package management tasks
+
+- name: subtasks | packages | Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
+- name: subtasks | packages | Install system packages
+  ansible.builtin.package:
+    name: "{{ system_packages }}"
+    state: present
+
+- name: subtasks | packages | Remove unnecessary packages
+  ansible.builtin.apt:
+    autoremove: true
+    autoclean: true
+  when: ansible_os_family == "Debian"
+  changed_when: false

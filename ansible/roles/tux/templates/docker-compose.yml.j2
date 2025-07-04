@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  tux-bot:
+    image: "{{ tux_image | default('ghcr.io/allthingslinux/tux:latest') }}"
+    container_name: tux-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./settings.yml:/app/config/settings.yml:ro
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      - TZ={{ ansible_facts['timezone'] | default('UTC') }}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

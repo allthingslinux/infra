@@ -1,0 +1,20 @@
+[
+    {
+        "key": "ctrl+shift+f",
+        "command": "workbench.action.tasks.runTask",
+        "args": "Ansible Lint (Auto-fix)",
+        "when": "editorTextFocus && resourceExtname == '.yml'"
+    },
+    {
+        "key": "ctrl+shift+alt+f",
+        "command": "workbench.action.tasks.runTask",
+        "args": "Ansible Lint All (Auto-fix)",
+        "when": "editorTextFocus"
+    },
+    {
+        "key": "ctrl+shift+l",
+        "command": "workbench.action.tasks.runTask",
+        "args": "Ansible Lint (Check Only)",
+        "when": "editorTextFocus && resourceExtname == '.yml'"
+    }
+]

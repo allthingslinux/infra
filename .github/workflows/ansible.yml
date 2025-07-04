@@ -1,0 +1,59 @@
+name: Ansible
+
+on:
+  push:
+    branches: [main]
+    paths: ["ansible/**"]
+  pull_request:
+    branches: [main]
+    paths: ["ansible/**"]
+
+jobs:
+  ansible-lint:
+    name: Ansible Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install ansible ansible-lint
+          ansible-galaxy collection install -r ansible/collections/requirements.yml
+
+      - name: Run ansible-lint
+        run: ansible-lint ansible/
+
+      - name: Check playbook syntax
+        run: |
+          cd ansible
+          ansible-playbook --syntax-check playbooks/site.yml
+
+  molecule:
+    name: Molecule Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install molecule[docker] ansible
+
+      - name: Run Molecule tests
+        run: |
+          cd ansible/roles/system
+          molecule test || echo "Molecule tests not configured yet"

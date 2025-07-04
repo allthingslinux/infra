@@ -1,0 +1,42 @@
+---
+# Service Monitoring Tasks
+# Sets up monitoring for individual services
+
+- name: service-monitoring | Configure service-specific monitoring
+  ansible.builtin.template:
+    src: service-monitoring.yml.j2
+    dest: "/opt/{{ service_name | default(inventory_hostname) }}/monitoring.yml"
+    mode: "0644"
+    backup: true
+  notify: restart service monitoring
+
+- name: service-monitoring | Install monitoring agents
+  ansible.builtin.package:
+    name:
+      - prometheus-node-exporter
+    state: present
+  failed_when: false
+
+- name: service-monitoring | Start node exporter service
+  ansible.builtin.systemd:
+    name: node_exporter
+    enabled: true
+    state: started
+  failed_when: false
+
+- name: service-monitoring | Configure service health checks
+  ansible.builtin.template:
+    src: health-check.sh.j2
+    dest: "/opt/{{ service_name | default(inventory_hostname) }}/health-check.sh"
+    mode: "0755"
+
+- name: service-monitoring | Schedule health monitoring
+  ansible.builtin.cron:
+    name: "Service health check"
+    minute: "*/5"
+    job: "/opt/{{ service_name | default(inventory_hostname) }}/health-check.sh"
+    user: root
+
+- name: service-monitoring | Register service with monitoring
+  ansible.builtin.debug:
+    msg: "Service monitoring configured for {{ inventory_hostname }}"

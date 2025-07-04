@@ -1,0 +1,237 @@
+---
+# All Things Linux - Domain Configuration
+# Single source of truth for all domains and their infrastructure requirements
+
+domains:
+  atl_services:
+    enabled: true
+    required: true
+    domain: "atl.services"
+    server:
+      type: "cx31"
+      location: "ash"
+      count: 1
+    services:
+      - nginx-proxy-manager
+      - authentik
+      - grafana
+      - prometheus
+      - alertmanager
+      - loki
+      - postfix
+    subdomains:
+      - npm
+      - auth
+      - metrics
+      - mail
+    network:
+      subnet: "172.20.0.0/16"
+      ip: "10.0.1.10"
+    monitoring:
+      enabled: true
+      critical: true
+
+  # Development and hosting platform
+  atl_dev:
+    enabled: true
+    domain: "atl.dev"
+    port: 8081
+    server:
+      type: "cx31"
+      location: "ash"
+      count: 1
+    services:
+      - docker
+      - code-server
+      - ssh-server
+      - web-hosting
+      - vps-management
+    features:
+      pubnix: true
+      ssh_access: true
+    network:
+      subnet: "172.21.0.0/16"
+    monitoring:
+      enabled: true
+
+  # Self-hosted applications
+  atl_tools:
+    enabled: true
+    domain: "atl.tools"
+    port: 8081
+    server:
+      type: "cx31"
+      location: "ash"
+      count: 1
+    services:
+      - nextcloud
+      - gitea
+      - vaultwarden
+      - tux-bot
+      - uptime-kuma
+      - pastebin
+    features:
+      sso: true
+      monitoring: true
+    network:
+      subnet: "172.22.0.0/16"
+    monitoring:
+      enabled: true
+
+  # Communication services
+  atl_chat:
+    enabled: true
+    domain: "atl.chat"
+    port: 8082
+    server:
+      type: "cx21"
+      location: "ash"
+      count: 1
+    services:
+      - prosody
+      - ergo-irc
+      - matterbridge
+      - signal-bridge
+      - element-web
+    ports:
+      - 5222 # XMPP C2S
+      - 5269 # XMPP S2S
+      - 6667 # IRC
+      - 6697 # IRC SSL
+    network:
+      subnet: "172.23.0.0/16"
+    monitoring:
+      enabled: true
+
+  # Documentation platform
+  atl_wiki:
+    enabled: true
+    domain: "atl.wiki"
+    port: 8083
+    server:
+      type: "cx31"
+      location: "ash"
+      count: 1
+    services:
+      - mediawiki
+      - apache
+      - elasticsearch
+    features:
+      search: true
+      caching: true
+    network:
+      subnet: "172.24.0.0/16"
+    monitoring:
+      enabled: true
+
+  # Main website - external service
+  main_domain:
+    enabled: false # ← This is how we disable it cleanly!
+    external: true
+    domain: "allthingslinux.org"
+    provider: "cloudflare_workers"
+    note: "Runs on Cloudflare Workers, no infrastructure needed"
+
+# Shared infrastructure components
+shared_infrastructure:
+  database_cluster:
+    enabled: true
+    servers:
+      - type: "cx31"
+        location: "ash"
+        role: "primary"
+      - type: "cx31"
+        location: "ash"
+        role: "replica"
+    services:
+      - postgresql
+      - redis
+      - pgbouncer
+
+  backup:
+    enabled: true
+    server:
+      type: "cx21"
+      location: "ash"
+      count: 1
+    services:
+      - borg
+      - rclone
+      - restic
+
+# Global settings
+global:
+  environment: "production"
+  project_name: "allthingslinux"
+  default_user: "ansible"
+  monitoring_enabled: true
+  backup_enabled: true
+  ssl_enabled: true
+  cloudflare_proxy: true
+
+  # Organization Information
+  organization:
+    name: "All Things Linux"
+    short_name: "ATL"
+    contact_email: "admin@allthingslinux.org"
+    timezone: "UTC"
+
+  # System Configuration
+  system:
+    timezone: "UTC"
+    locale: "en_US.UTF-8"
+    ntp_servers:
+      - "pool.ntp.org"
+      - "time.google.com"
+
+  # Security Defaults
+  security:
+    ssh:
+      pubkey_auth: true
+      password_auth: false
+      root_login: false
+      max_auth_tries: 3
+    firewall:
+      default_policy: "deny"
+      logging: true
+      allowed_ports:
+        tcp: [80, 443]
+        udp: []
+  # Docker Configuration
+  docker:
+    daemon_config:
+      log_driver: "json-file"
+      log_opts:
+        max_size: "10m"
+        max_file: "3"
+    container_defaults:
+      restart_policy: "unless-stopped"
+      network_mode: "bridge"
+
+  # SSL/TLS Configuration
+  ssl:
+    provider: "letsencrypt"
+    email: "ssl@allthingslinux.org"
+    protocols: ["TLSv1.2", "TLSv1.3"]
+  # Monitoring Configuration
+  monitoring:
+    prometheus:
+      retention_time: "15d"
+      scrape_interval: "15s"
+    grafana:
+      admin_user: "admin"
+    logging:
+      driver: "loki"
+      retention: "30d"
+      level: "INFO"
+
+  # Backup Configuration
+  backup:
+    method: "borg"
+    encryption: true
+    compression: "lz4"
+    schedule: "0 2 * * *"
+    retention:
+      daily: 7
+      weekly: 4
+      monthly: 6

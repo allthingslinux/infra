@@ -1,0 +1,106 @@
+---
+# Ansible Lint Configuration for All Things Linux Infrastructure
+# Based on official documentation: https://ansible.readthedocs.io/projects/lint/en/latest/configuration/
+
+# Use production profile for strict quality standards
+profile: production
+
+# Enable auto-fix for specific rules (can be overridden by --fix command line option)
+write_list:
+  - all # Enable auto-fix for all rules that support it
+
+# Exclude certain files/directories from linting
+# Paths are relative to this file's location
+exclude_paths:
+  - .cache/ # Implicit unless exclude_paths is defined
+  - .github/
+  - logs/
+  - .requirements_installed
+  - "*/node_modules/"
+  - "*/venv/"
+  - "*/.venv/"
+  - "**/.ansible/" # Exclude ansible-lint generated directories
+  - ".ansible/" # Exclude root .ansible directory
+  - files/secrets/
+  - host_vars/secrets/
+  - group_vars/secrets/
+
+# Allow list of rules to ignore globally
+# Note: Consider using .ansible-lint-ignore file instead for better visibility
+skip_list:
+  - yaml[line-length] # Allow longer lines for readability in some cases
+
+# Rules that should only warn, not fail
+warn_list:
+  - experimental # Warn about experimental features
+  - name[missing] # Warn about tasks without names
+  - name[casing] # Warn about casing but don't fail
+
+# Enable opt-in rules for better code quality
+enable_list:
+  - args # Check for missing or extra arguments
+  - empty-string-compare # Prefer comparing to empty string explicitly
+  - no-log-password # Ensure passwords are not logged
+  - no-same-owner # Avoid using same owner for files
+  - name[prefix] # Enforce task name prefixes
+  - fqcn-builtins # Require FQCN for builtins
+  - yaml # Enable YAML linting even if yamllint missing
+
+# Variable naming pattern enforcement
+# Must start with lowercase letter or underscore, followed by lowercase letters, numbers, or underscores
+var_naming_pattern: "^[a-z_][a-z0-9_]*$"
+
+# Loop variable prefix pattern for roles
+# Helps avoid variable collision in roles
+loop_var_prefix: "^(__|{role}_)"
+
+# Task name prefix pattern
+# Use {stem} placeholder for file stem
+task_name_prefix: "{stem} | "
+
+# Mock modules that might not be available during linting
+mock_modules:
+  - community.general.ufw
+  - community.general.locale_gen
+  - community.general.timezone
+  - community.docker.docker_compose
+  - community.postgresql.postgresql_db
+  - community.mysql.mysql_db
+
+# Mock roles for testing purposes
+mock_roles:
+  - atl.common
+  - atl.security
+  - atl.monitoring
+
+# Define required Ansible variables to satisfy syntax check
+extra_vars:
+  ansible_user: ansible
+  ansible_become: true
+  environment: production
+  domain_base: allthingslinux.org
+
+# File type detection patterns
+kinds:
+  - playbook: "**/playbooks/*.yml"
+  - playbook: "**/playbooks/*.yaml"
+  - tasks: "**/tasks/*.yml"
+  - tasks: "**/tasks/*.yaml"
+  - vars: "**/vars/*.yml"
+  - vars: "**/group_vars/*.yml"
+  - vars: "**/host_vars/*.yml"
+  - meta: "**/meta/main.yml"
+  - requirements: "**/requirements.yml"
+  - galaxy: "**/galaxy.yml"
+
+# Use default rules
+use_default_rules: true
+
+# Enable offline mode for CI/CD environments
+offline: true
+
+# Enable strict mode for production quality
+strict: true
+
+# Set verbosity level (0-3)
+verbosity: 1
