@@ -1,0 +1,198 @@
+---
+# SSL Certificate Renewal Playbook
+# Manages SSL certificates for all ATL domains
+
+- name: "SSL Certificate Management"
+  hosts: atl_services
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display SSL management banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                SSL Certificate Management                     ║
+          ║              Renewal & Validation for ATL Domains            ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🔐 Managing SSL certificates for all domains
+          🔄 Automatic renewal via Nginx Proxy Manager
+          ✅ Certificate validation and monitoring
+
+    - name: Load domain configuration
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../configs/domains.yml"
+        name: domains_config
+
+    - name: Extract enabled domains
+      ansible.builtin.set_fact:
+        enabled_domains: >-
+          {{
+            domains_config.domains | dict2items |
+            selectattr('value.enabled', 'equalto', true) |
+            rejectattr('value.external', 'defined') |
+            items2dict
+          }}
+
+  tasks:
+    - name: Check Nginx Proxy Manager status
+      ansible.builtin.uri:
+        url: "https://npm.atl.services/api/nginx/proxy-hosts"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ npm_api_token | default('') }}"
+        status_code: [200, 401, 403]
+      register: npm_status
+      failed_when: false
+
+    - name: Display NPM connection status
+      ansible.builtin.debug:
+        msg: |
+          NPM Status: {{ 'Connected' if npm_status.status == 200 else 'Authentication required' }}
+          {% if npm_status.status != 200 %}
+          Note: Manual SSL renewal may be required via NPM web interface
+          {% endif %}
+
+    - name: Check certificate expiration for each domain
+      ansible.builtin.uri:
+        url: "https://{{ item.value.domain }}"
+        method: GET
+        timeout: 10
+      register: cert_check
+      failed_when: false
+      loop: "{{ enabled_domains | dict2items }}"
+      loop_control:
+        label: "{{ item.value.domain }}"
+
+    - name: Extract certificate information
+      ansible.builtin.set_fact:
+        cert_info: |
+          {% for result in cert_check.results %}
+          {% if result.x509_certificate is defined %}
+          {{ result.item.value.domain }}: Expires {{ result.x509_certificate.not_after }}
+          {% else %}
+          {{ result.item.value.domain }}: Certificate check failed
+          {% endif %}
+          {% endfor %}
+
+    - name: Display certificate status
+      ansible.builtin.debug:
+        msg: |
+          🔐 SSL Certificate Status:
+          {{ cert_info }}
+
+    - name: Check for certificates expiring soon (30 days)
+      ansible.builtin.set_fact:
+        expiring_certs: >-
+          {{
+            cert_check.results |
+            selectattr('x509_certificate', 'defined') |
+            selectattr('x509_certificate.not_after', 'defined') |
+            map(attribute='item.value.domain') |
+            list
+          }}
+      when: cert_check.results is defined
+
+    - name: Force SSL renewal for expiring certificates
+      ansible.builtin.uri:
+        url: "https://npm.atl.services/api/nginx/certificates/{{ item }}/renew"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ npm_api_token | default('') }}"
+        status_code: [200, 202, 401, 403]
+      register: renewal_result
+      failed_when: false
+      loop: "{{ expiring_certs | default([]) }}"
+      when: npm_api_token is defined
+
+    - name: Create SSL monitoring script
+      ansible.builtin.copy:
+        dest: /usr/local/bin/ssl-monitor.sh
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          # SSL Certificate Monitoring Script for ATL
+
+          DOMAINS=(
+          {% for domain_name, config in enabled_domains.items() %}
+            "{{ config.domain }}"
+          {% if config.subdomains is defined %}
+          {% for subdomain in config.subdomains %}
+            "{{ subdomain }}.{{ config.domain }}"
+          {% endfor %}
+          {% endif %}
+          {% endfor %}
+          )
+
+          LOG_FILE="/var/log/atl/ssl-monitor.log"
+          ALERT_DAYS=30
+
+          echo "$(date): Starting SSL certificate check" >> $LOG_FILE
+
+          for domain in "${DOMAINS[@]}"; do
+            echo "Checking $domain..." >> $LOG_FILE
+
+            # Get certificate expiration date
+            EXPIRY=$(echo | timeout 10 openssl s_client -servername $domain -connect $domain:443 2>/dev/null | \
+                    openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+
+            if [ -n "$EXPIRY" ]; then
+              # Convert to epoch time
+              EXPIRY_EPOCH=$(date -d "$EXPIRY" +%s)
+              CURRENT_EPOCH=$(date +%s)
+              DAYS_UNTIL_EXPIRY=$(( ($EXPIRY_EPOCH - $CURRENT_EPOCH) / 86400 ))
+
+              echo "$domain: $DAYS_UNTIL_EXPIRY days until expiry" >> $LOG_FILE
+
+              if [ $DAYS_UNTIL_EXPIRY -lt $ALERT_DAYS ]; then
+                echo "WARNING: $domain certificate expires in $DAYS_UNTIL_EXPIRY days!" >> $LOG_FILE
+                # Send alert (integrate with your monitoring system)
+                logger "SSL ALERT: $domain certificate expires in $DAYS_UNTIL_EXPIRY days"
+              fi
+            else
+              echo "ERROR: Could not check certificate for $domain" >> $LOG_FILE
+            fi
+          done
+
+          echo "$(date): SSL certificate check completed" >> $LOG_FILE
+
+    - name: Schedule SSL monitoring
+      ansible.builtin.cron:
+        name: "SSL Certificate Monitoring"
+        minute: "0"
+        hour: "6"
+        job: "/usr/local/bin/ssl-monitor.sh"
+        user: root
+
+    - name: Create SSL renewal log directory
+      ansible.builtin.file:
+        path: /var/log/atl
+        state: directory
+        mode: "0755"
+
+    - name: Log SSL management completion
+      ansible.builtin.lineinfile:
+        path: "/var/log/atl/ssl-management.log"
+        line: "{{ ansible_date_time.iso8601 }} - SSL certificate management completed"
+        create: true
+        mode: "0644"
+
+  post_tasks:
+    - name: Display SSL management summary
+      ansible.builtin.debug:
+        msg: |
+          ✅ SSL Certificate Management Complete!
+
+          🔐 Domains monitored: {{ enabled_domains | length }}
+          📊 NPM Status: {{ 'Connected' if npm_status.status == 200 else 'Manual management required' }}
+          ⏰ Monitoring: Daily checks at 6 AM
+          📝 Logs: /var/log/atl/ssl-monitor.log
+
+          {% if expiring_certs is defined and expiring_certs | length > 0 %}
+          ⚠️  Certificates needing attention: {{ expiring_certs | join(', ') }}
+          {% else %}
+          ✅ All certificates are current
+          {% endif %}
+
+          Next: Check NPM web interface for any manual renewals needed

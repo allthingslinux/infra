@@ -88,8 +88,8 @@ theme:
 
 plugins:
   - search
-  - mermaid2
   - include-markdown
+  # - mermaid2
 
 markdown_extensions:
   - abbr
@@ -125,11 +125,9 @@ markdown_extensions:
       repo: infra
   - pymdownx.mark
   - pymdownx.smartsymbols
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!%20%20%20%20%20%20%20%20%20%20python/name:pymdownx.superfences.fence_code_format
+  - "pymdownx.superfences":
+      "custom_fences": [{ "name": "mermaid", "class": "mermaid", "format": pymdownx.superfences.fence_div_format }]
+
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.tasklist:
@@ -144,9 +142,6 @@ extra:
       link: https://github.com/allthingslinux/infra
     - icon: fontawesome/brands/discord
       link: https://discord.gg/linux
-  analytics:
-    provider: google
-    property: !ENV GOOGLE_ANALYTICS_KEY
 
 extra_css:
   - assets/extra.css

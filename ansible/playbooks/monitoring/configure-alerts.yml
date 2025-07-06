@@ -1,0 +1,425 @@
+---
+# Alert Configuration Playbook
+# Configures monitoring alerts and notification channels
+
+- name: "Configure Monitoring Alerts"
+  hosts: atl_services
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display alert configuration banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                    Alert Configuration                       ║
+          ║              Monitoring Alerts & Notifications               ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🚨 Alert Rules: Service availability and performance
+          📧 Notifications: Email, Discord, and webhook alerts
+          📊 Thresholds: CPU, memory, disk, and service health
+          🔔 Escalation: Critical alerts with proper routing
+
+    - name: Load domain configuration
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../configs/domains.yml"
+        name: domains_config
+
+    - name: Extract monitoring configuration
+      ansible.builtin.set_fact:
+        alert_config: "{{ domains_config.monitoring | default({}) }}"
+        notification_channels: "{{ domains_config.monitoring.notifications | default({}) }}"
+
+  tasks:
+    - name: Create alert rules directory
+      ansible.builtin.file:
+        path: /opt/monitoring/prometheus/rules
+        state: directory
+        mode: "0755"
+
+    - name: Generate system alert rules
+      ansible.builtin.copy:
+        dest: /opt/monitoring/prometheus/rules/system-alerts.yml
+        mode: "0644"
+        content: |
+          groups:
+            - name: system.rules
+              rules:
+                # High CPU usage
+                - alert: HighCPUUsage
+                  expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+                  for: 5m
+                  labels:
+                    severity: warning
+                    service: system
+                  annotations:
+                    summary: "High CPU usage detected on {{ "{{" }} $labels.instance {{ "}}" }}"
+                    description: "CPU usage is above 80% for more than 5 minutes on {{ "{{" }} $labels.instance {{ "}}" }}"
+
+                # High memory usage
+                - alert: HighMemoryUsage
+                  expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+                  for: 5m
+                  labels:
+                    severity: warning
+                    service: system
+                  annotations:
+                    summary: "High memory usage detected on {{ "{{" }} $labels.instance {{ "}}" }}"
+                    description: "Memory usage is above 85% for more than 5 minutes on {{ "{{" }} $labels.instance {{ "}}" }}"
+
+                # Low disk space
+                - alert: LowDiskSpace
+                  expr: node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"} * 100 < 10
+                  for: 2m
+                  labels:
+                    severity: critical
+                    service: system
+                  annotations:
+                    summary: "Low disk space on {{ "{{" }} $labels.instance {{ "}}" }}"
+                    description: "Disk space is below 10% on {{ "{{" }} $labels.instance {{ "}}" }} ({{ "{{" }} $labels.mountpoint {{ "}}" }})"
+
+                # System load
+                - alert: HighSystemLoad
+                  expr: node_load15 > 2
+                  for: 10m
+                  labels:
+                    severity: warning
+                    service: system
+                  annotations:
+                    summary: "High system load on {{ "{{" }} $labels.instance {{ "}}" }}"
+                    description: "15-minute load average is above 2.0 on {{ "{{" }} $labels.instance {{ "}}" }}"
+
+    - name: Generate service alert rules
+      ansible.builtin.copy:
+        dest: /opt/monitoring/prometheus/rules/service-alerts.yml
+        mode: "0644"
+        content: |
+          groups:
+            - name: service.rules
+              rules:
+                # Service down
+                - alert: ServiceDown
+                  expr: up == 0
+                  for: 2m
+                  labels:
+                    severity: critical
+                    service: availability
+                  annotations:
+                    summary: "Service {{ "{{" }} $labels.job {{ "}}" }} is down"
+                    description: "Service {{ "{{" }} $labels.job {{ "}}" }} on {{ "{{" }} $labels.instance {{ "}}" }} has been down for more than 2 minutes"
+
+                # HTTP service unavailable
+                - alert: HTTPServiceUnavailable
+                  expr: probe_success == 0
+                  for: 3m
+                  labels:
+                    severity: critical
+                    service: web
+                  annotations:
+                    summary: "HTTP service unavailable: {{ "{{" }} $labels.instance {{ "}}" }}"
+                    description: "HTTP probe failed for {{ "{{" }} $labels.instance {{ "}}" }} for more than 3 minutes"
+
+                # SSL certificate expiring
+                - alert: SSLCertificateExpiring
+                  expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 30
+                  for: 1h
+                  labels:
+                    severity: warning
+                    service: ssl
+                  annotations:
+                    summary: "SSL certificate expiring soon for {{ "{{" }} $labels.instance {{ "}}" }}"
+                    description: "SSL certificate for {{ "{{" }} $labels.instance {{ "}}" }} expires in less than 30 days"
+
+                # SSL certificate expired
+                - alert: SSLCertificateExpired
+                  expr: probe_ssl_earliest_cert_expiry - time() < 0
+                  for: 1m
+                  labels:
+                    severity: critical
+                    service: ssl
+                  annotations:
+                    summary: "SSL certificate expired for {{ "{{" }} $labels.instance {{ "}}" }}"
+                    description: "SSL certificate for {{ "{{" }} $labels.instance {{ "}}" }} has expired"
+
+                # Docker container down
+                - alert: DockerContainerDown
+                  expr: container_last_seen{name!="POD"} < time() - 60
+                  for: 5m
+                  labels:
+                    severity: warning
+                    service: docker
+                  annotations:
+                    summary: "Docker container {{ "{{" }} $labels.name {{ "}}" }} is down"
+                    description: "Container {{ "{{" }} $labels.name {{ "}}" }} on {{ "{{" }} $labels.instance {{ "}}" }} has been down for more than 5 minutes"
+
+    - name: Generate application alert rules
+      ansible.builtin.copy:
+        dest: /opt/monitoring/prometheus/rules/application-alerts.yml
+        mode: "0644"
+        content: |
+          groups:
+            - name: application.rules
+              rules:
+                # High response time
+                - alert: HighResponseTime
+                  expr: probe_duration_seconds > 5
+                  for: 5m
+                  labels:
+                    severity: warning
+                    service: performance
+                  annotations:
+                    summary: "High response time for {{ "{{" }} $labels.instance {{ "}}" }}"
+                    description: "Response time for {{ "{{" }} $labels.instance {{ "}}" }} is above 5 seconds for more than 5 minutes"
+
+                # Database connection issues
+                - alert: DatabaseConnectionIssues
+                  expr: mysql_up == 0 or postgres_up == 0
+                  for: 2m
+                  labels:
+                    severity: critical
+                    service: database
+                  annotations:
+                    summary: "Database connection issues on {{ "{{" }} $labels.instance {{ "}}" }}"
+                    description: "Database service on {{ "{{" }} $labels.instance {{ "}}" }} is not responding"
+
+                # High error rate
+                - alert: HighErrorRate
+                  expr: rate(nginx_http_requests_total{status=~"5.."}[5m]) / rate(nginx_http_requests_total[5m]) > 0.1
+                  for: 5m
+                  labels:
+                    severity: warning
+                    service: nginx
+                  annotations:
+                    summary: "High error rate detected"
+                    description: "Error rate is above 10% for {{ "{{" }} $labels.instance {{ "}}" }}"
+
+    - name: Configure AlertManager routing
+      ansible.builtin.template:
+        dest: /opt/monitoring/alertmanager/alertmanager.yml
+        mode: "0644"
+        content: |
+          global:
+            smtp_smarthost: '{{ vault_smtp_host | default("localhost:587") }}'
+            smtp_from: '{{ vault_smtp_from | default("alerts@atl.services") }}'
+            smtp_auth_username: '{{ vault_smtp_user | default("") }}'
+            smtp_auth_password: '{{ vault_smtp_password | default("") }}'
+            smtp_require_tls: true
+
+          route:
+            group_by: ['alertname', 'cluster', 'service']
+            group_wait: 10s
+            group_interval: 10s
+            repeat_interval: 1h
+            receiver: 'default'
+            routes:
+              - match:
+                  severity: critical
+                receiver: 'critical-alerts'
+                group_wait: 5s
+                repeat_interval: 30m
+              - match:
+                  service: ssl
+                receiver: 'ssl-alerts'
+                repeat_interval: 24h
+              - match:
+                  service: system
+                receiver: 'system-alerts'
+
+          receivers:
+            - name: 'default'
+              email_configs:
+                - to: '{{ vault_alert_email | default("admin@atl.services") }}'
+                  subject: '[ATL] Alert: {{ "{{" }} range .Alerts {{ "}}" }}{{ "{{" }} .Annotations.summary {{ "}}" }}{{ "{{" }} end {{ "}}" }}'
+                  body: |
+                    {{ "{{" }} range .Alerts {{ "}}" }}
+                    Alert: {{ "{{" }} .Annotations.summary {{ "}}" }}
+                    Description: {{ "{{" }} .Annotations.description {{ "}}" }}
+                    Severity: {{ "{{" }} .Labels.severity {{ "}}" }}
+                    Instance: {{ "{{" }} .Labels.instance {{ "}}" }}
+                    Time: {{ "{{" }} .StartsAt.Format "2006-01-02 15:04:05" {{ "}}" }}
+                    {{ "{{" }} end {{ "}}" }}
+
+            - name: 'critical-alerts'
+              email_configs:
+                - to: '{{ vault_alert_email | default("admin@atl.services") }}'
+                  subject: '[ATL CRITICAL] {{ "{{" }} range .Alerts {{ "}}" }}{{ "{{" }} .Annotations.summary {{ "}}" }}{{ "{{" }} end {{ "}}" }}'
+                  body: |
+                    🚨 CRITICAL ALERT 🚨
+
+                    {{ "{{" }} range .Alerts {{ "}}" }}
+                    Alert: {{ "{{" }} .Annotations.summary {{ "}}" }}
+                    Description: {{ "{{" }} .Annotations.description {{ "}}" }}
+                    Instance: {{ "{{" }} .Labels.instance {{ "}}" }}
+                    Time: {{ "{{" }} .StartsAt.Format "2006-01-02 15:04:05" {{ "}}" }}
+
+                    Immediate action required!
+                    {{ "{{" }} end {{ "}}" }}
+              {% if vault_discord_webhook_url is defined %}
+              webhook_configs:
+                - url: '{{ vault_discord_webhook_url }}'
+                  send_resolved: true
+                  title: '🚨 ATL Critical Alert'
+                  text: |
+                    {{ "{{" }} range .Alerts {{ "}}" }}
+                    **{{ "{{" }} .Annotations.summary {{ "}}" }}**
+                    {{ "{{" }} .Annotations.description {{ "}}" }}
+                    Instance: {{ "{{" }} .Labels.instance {{ "}}" }}
+                    {{ "{{" }} end {{ "}}" }}
+              {% endif %}
+
+            - name: 'ssl-alerts'
+              email_configs:
+                - to: '{{ vault_alert_email | default("admin@atl.services") }}'
+                  subject: '[ATL SSL] Certificate Alert'
+                  body: |
+                    🔐 SSL Certificate Alert
+
+                    {{ "{{" }} range .Alerts {{ "}}" }}
+                    Domain: {{ "{{" }} .Labels.instance {{ "}}" }}
+                    Issue: {{ "{{" }} .Annotations.summary {{ "}}" }}
+                    Description: {{ "{{" }} .Annotations.description {{ "}}" }}
+                    {{ "{{" }} end {{ "}}" }}
+
+                    Please check the Nginx Proxy Manager for certificate renewal.
+
+            - name: 'system-alerts'
+              email_configs:
+                - to: '{{ vault_alert_email | default("admin@atl.services") }}'
+                  subject: '[ATL System] {{ "{{" }} range .Alerts {{ "}}" }}{{ "{{" }} .Annotations.summary {{ "}}" }}{{ "{{" }} end {{ "}}" }}'
+                  body: |
+                    🖥️ System Alert
+
+                    {{ "{{" }} range .Alerts {{ "}}" }}
+                    Server: {{ "{{" }} .Labels.instance {{ "}}" }}
+                    Alert: {{ "{{" }} .Annotations.summary {{ "}}" }}
+                    Details: {{ "{{" }} .Annotations.description {{ "}}" }}
+                    Severity: {{ "{{" }} .Labels.severity {{ "}}" }}
+                    {{ "{{" }} end {{ "}}" }}
+
+          inhibit_rules:
+            - source_match:
+                severity: 'critical'
+              target_match:
+                severity: 'warning'
+              equal: ['alertname', 'instance']
+        backup: true
+        notify: Restart alertmanager
+
+    - name: Create alert testing script
+      ansible.builtin.copy:
+        dest: /usr/local/bin/test-alerts.sh
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          # Alert testing script for ATL monitoring
+
+          ALERTMANAGER_URL="http://localhost:9093"
+
+          echo "Testing AlertManager configuration..."
+
+          # Test configuration
+          curl -s "${ALERTMANAGER_URL}/api/v1/status" | jq '.data.configYAML' > /dev/null
+          if [ $? -eq 0 ]; then
+            echo "✅ AlertManager configuration is valid"
+          else
+            echo "❌ AlertManager configuration has errors"
+            exit 1
+          fi
+
+          # Send test alert
+          if [ "$1" = "--send-test" ]; then
+            echo "Sending test alert..."
+            curl -XPOST "${ALERTMANAGER_URL}/api/v1/alerts" -H "Content-Type: application/json" -d '[
+              {
+                "labels": {
+                  "alertname": "TestAlert",
+                  "instance": "test-instance",
+                  "severity": "warning",
+                  "service": "test"
+                },
+                "annotations": {
+                  "summary": "Test alert from monitoring system",
+                  "description": "This is a test alert to verify notification channels are working correctly."
+                },
+                "startsAt": "'$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)'",
+                "endsAt": "'$(date -u -d '+5 minutes' +%Y-%m-%dT%H:%M:%S.%3NZ)'"
+              }
+            ]'
+            echo "Test alert sent!"
+          fi
+
+          echo "Alert testing completed."
+
+    - name: Update Prometheus configuration to include alert rules
+      ansible.builtin.lineinfile:
+        path: /opt/monitoring/prometheus/prometheus.yml
+        regexp: "^rule_files:"
+        line: |
+          rule_files:
+            - "/etc/prometheus/rules/*.yml"
+        backup: true
+        notify: Restart prometheus
+
+    - name: Restart monitoring services to apply alert configuration
+      ansible.builtin.shell: |
+        cd /opt/monitoring
+        docker compose restart prometheus alertmanager
+      changed_when: true
+
+  handlers:
+    - name: Restart alertmanager
+      ansible.builtin.shell: |
+        cd /opt/monitoring
+        docker compose restart alertmanager
+      changed_when: true
+
+    - name: Restart prometheus
+      ansible.builtin.shell: |
+        cd /opt/monitoring
+        docker compose restart prometheus
+      changed_when: true
+
+  post_tasks:
+    - name: Verify AlertManager is running
+      ansible.builtin.uri:
+        url: "http://localhost:9093/api/v1/status"
+        method: GET
+        status_code: 200
+        timeout: 30
+      register: alertmanager_status
+      retries: 5
+      delay: 10
+
+    - name: Display alert configuration summary
+      ansible.builtin.debug:
+        msg: |
+          ✅ Alert Configuration Complete!
+
+          🚨 Alert Rules Configured:
+          • System alerts: CPU, memory, disk, load
+          • Service alerts: Availability, HTTP, SSL, Docker
+          • Application alerts: Response time, errors, database
+
+          📧 Notification Channels:
+          • Email: {{ vault_alert_email | default("admin@atl.services") }}
+          {% if vault_discord_webhook_url is defined %}
+          • Discord: Webhook configured for critical alerts
+          {% endif %}
+          • SMTP: {{ vault_smtp_host | default("localhost:587") }}
+
+          🔧 Alert Routing:
+          • Critical alerts: Immediate notification (30min repeat)
+          • SSL alerts: Daily notifications
+          • System alerts: Hourly notifications
+          • Default: Hourly notifications
+
+          📊 AlertManager Status: {{ 'HEALTHY' if alertmanager_status.status == 200 else 'NEEDS ATTENTION' }}
+
+          🧪 Test Commands:
+          • Configuration: /usr/local/bin/test-alerts.sh
+          • Send test alert: /usr/local/bin/test-alerts.sh --send-test
+
+          🌐 Access:
+          • AlertManager: http://localhost:9093
+          • Prometheus Rules: http://localhost:9090/rules

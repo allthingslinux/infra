@@ -135,12 +135,11 @@
       notify: "Restart services for {{ target_domain }}"
 
     - name: "Start services for {{ target_domain }}"
-      community.docker.docker_compose:
-        project_src: "{{ service_dir }}"
-        state: present
-        pull: true
-        remove_orphans: true
+      ansible.builtin.command:
+        cmd: docker compose up -d --pull always --remove-orphans
+        chdir: "{{ service_dir }}"
       register: domain_result
+      changed_when: "'Started' in domain_result.stdout or 'Created' in domain_result.stdout"
 
     - name: "Wait for services to be healthy for {{ target_domain }}"
       ansible.builtin.uri:
@@ -198,10 +197,10 @@
 
   handlers:
     - name: "Restart services for {{ target_domain }}"
-      community.docker.docker_compose:
-        project_src: "{{ service_dir }}"
-        state: present
-        restarted: true
+      ansible.builtin.command:
+        cmd: docker compose restart
+        chdir: "{{ service_dir }}"
+      changed_when: true
 
     - name: Restart monitoring
       ansible.builtin.systemd:

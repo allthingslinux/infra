@@ -1,0 +1,245 @@
+---
+# Monitoring Stack Deployment Playbook
+# Deploys Grafana, Prometheus, and AlertManager on atl.services
+
+- name: "Deploy Monitoring Stack"
+  hosts: atl_services
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display monitoring deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                 Monitoring Stack Deployment                  ║
+          ║            Grafana, Prometheus & AlertManager                ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          📊 Grafana: Dashboard and visualization
+          📈 Prometheus: Metrics collection and storage
+          🚨 AlertManager: Alert routing and notification
+          🔍 Node Exporters: System metrics from all servers
+
+    - name: Load domain configuration
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../configs/domains.yml"
+        name: domains_config
+
+    - name: Extract monitoring targets
+      ansible.builtin.set_fact:
+        monitoring_targets: >-
+          {{
+            domains_config.domains | dict2items |
+            selectattr('value.enabled', 'equalto', true) |
+            selectattr('value.monitoring.enabled', 'defined') |
+            selectattr('value.monitoring.enabled', 'equalto', true) |
+            items2dict
+          }}
+
+  tasks:
+    - name: Create monitoring directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root
+      loop:
+        - /opt/monitoring
+        - /opt/monitoring/prometheus
+        - /opt/monitoring/grafana
+        - /opt/monitoring/alertmanager
+        - /opt/monitoring/data
+        - /opt/monitoring/data/prometheus
+        - /opt/monitoring/data/grafana
+        - /opt/monitoring/data/alertmanager
+
+    - name: Generate Prometheus configuration
+      ansible.builtin.template:
+        src: prometheus.yml.j2
+        dest: /opt/monitoring/prometheus/prometheus.yml
+        mode: "0644"
+        backup: true
+      vars:
+        scrape_targets: "{{ monitoring_targets }}"
+      notify: Restart monitoring stack
+
+    - name: Generate AlertManager configuration
+      ansible.builtin.template:
+        src: alertmanager.yml.j2
+        dest: /opt/monitoring/alertmanager/alertmanager.yml
+        mode: "0644"
+        backup: true
+      notify: Restart monitoring stack
+
+    - name: Create alert rules
+      ansible.builtin.template:
+        src: alert-rules.yml.j2
+        dest: /opt/monitoring/prometheus/alert-rules.yml
+        mode: "0644"
+        backup: true
+      notify: Restart monitoring stack
+
+    - name: Generate monitoring Docker Compose
+      ansible.builtin.template:
+        src: monitoring-compose.yml.j2
+        dest: /opt/monitoring/docker-compose.yml
+        mode: "0644"
+        backup: true
+      vars:
+        grafana_admin_password: "{{ vault_grafana_admin_password | default('admin') }}"
+        smtp_host: "{{ vault_smtp_host | default('localhost') }}"
+        smtp_user: "{{ vault_smtp_user | default('') }}"
+        smtp_password: "{{ vault_smtp_password | default('') }}"
+
+    - name: Create Grafana provisioning directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /opt/monitoring/grafana/provisioning
+        - /opt/monitoring/grafana/provisioning/datasources
+        - /opt/monitoring/grafana/provisioning/dashboards
+        - /opt/monitoring/grafana/dashboards
+
+    - name: Configure Grafana datasources
+      ansible.builtin.template:
+        src: grafana-datasources.yml.j2
+        dest: /opt/monitoring/grafana/provisioning/datasources/prometheus.yml
+        mode: "0644"
+
+    - name: Configure Grafana dashboard provisioning
+      ansible.builtin.template:
+        src: grafana-dashboard-config.yml.j2
+        dest: /opt/monitoring/grafana/provisioning/dashboards/default.yml
+        mode: "0644"
+
+    - name: Download community dashboards
+      ansible.builtin.get_url:
+        url: "{{ item.url }}"
+        dest: "/opt/monitoring/grafana/dashboards/{{ item.name }}.json"
+        mode: "0644"
+      loop:
+        - name: "node-exporter"
+          url: "https://grafana.com/api/dashboards/1860/revisions/27/download"
+        - name: "docker-containers"
+          url: "https://grafana.com/api/dashboards/193/revisions/2/download"
+        - name: "nginx-proxy-manager"
+          url: "https://grafana.com/api/dashboards/12708/revisions/1/download"
+      failed_when: false
+
+    - name: Create custom ATL dashboard
+      ansible.builtin.template:
+        src: atl-overview-dashboard.json.j2
+        dest: /opt/monitoring/grafana/dashboards/atl-overview.json
+        mode: "0644"
+      vars:
+        domains: "{{ monitoring_targets }}"
+
+    - name: Deploy monitoring stack
+      ansible.builtin.shell: |
+        cd /opt/monitoring
+        docker compose pull
+        docker compose up -d
+      register: monitoring_deployment
+      changed_when: "'Started' in monitoring_deployment.stdout or 'Created' in monitoring_deployment.stdout"
+      timeout: 300
+
+    - name: Wait for Grafana to be ready
+      ansible.builtin.uri:
+        url: "https://metrics.atl.services/api/health"
+        method: GET
+        status_code: [200, 401]
+        timeout: 30
+      register: grafana_health
+      retries: 15
+      delay: 20
+      failed_when: false
+
+    - name: Wait for Prometheus to be ready
+      ansible.builtin.uri:
+        url: "http://localhost:9090/-/ready"
+        method: GET
+        status_code: 200
+        timeout: 30
+      register: prometheus_health
+      retries: 10
+      delay: 15
+      failed_when: false
+
+    - name: Create monitoring maintenance script
+      ansible.builtin.copy:
+        dest: /usr/local/bin/monitoring-maintenance.sh
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          # Monitoring stack maintenance script
+
+          MONITORING_DIR="/opt/monitoring"
+          LOG_FILE="/var/log/atl/monitoring-maintenance.log"
+
+          echo "$(date): Starting monitoring maintenance" >> $LOG_FILE
+
+          # Check disk usage for monitoring data
+          PROMETHEUS_SIZE=$(du -sh $MONITORING_DIR/data/prometheus 2>/dev/null | cut -f1)
+          GRAFANA_SIZE=$(du -sh $MONITORING_DIR/data/grafana 2>/dev/null | cut -f1)
+
+          echo "Prometheus data size: $PROMETHEUS_SIZE" >> $LOG_FILE
+          echo "Grafana data size: $GRAFANA_SIZE" >> $LOG_FILE
+
+          # Clean old Prometheus data (older than 30 days)
+          find $MONITORING_DIR/data/prometheus -name "*.tmp" -mtime +1 -delete 2>/dev/null
+
+          # Restart monitoring stack if needed
+          if [ "$1" = "--restart" ]; then
+            echo "Restarting monitoring stack..." >> $LOG_FILE
+            cd $MONITORING_DIR
+            docker compose restart
+          fi
+
+          echo "$(date): Monitoring maintenance completed" >> $LOG_FILE
+
+    - name: Schedule monitoring maintenance
+      ansible.builtin.cron:
+        name: "Monitoring stack maintenance"
+        minute: "0"
+        hour: "3"
+        job: "/usr/local/bin/monitoring-maintenance.sh"
+        user: root
+
+  handlers:
+    - name: Restart monitoring stack
+      ansible.builtin.shell: |
+        cd /opt/monitoring
+        docker compose restart
+      changed_when: true
+
+  post_tasks:
+    - name: Display monitoring stack status
+      ansible.builtin.debug:
+        msg: |
+          ✅ Monitoring Stack Deployment Complete!
+
+          📊 Grafana: https://metrics.atl.services
+             Status: {{ 'HEALTHY' if grafana_health.status | default(0) in [200, 401] else 'STARTING' }}
+             Default login: admin / {{ vault_grafana_admin_password | default('admin') }}
+
+          📈 Prometheus: http://localhost:9090
+             Status: {{ 'HEALTHY' if prometheus_health.status | default(0) == 200 else 'STARTING' }}
+             Targets: {{ monitoring_targets | length }} domains configured
+
+          🚨 AlertManager: http://localhost:9093
+             Status: {{ 'DEPLOYED' if monitoring_deployment.changed else 'RUNNING' }}
+
+          📋 Monitoring Targets:
+          {% for name, config in monitoring_targets.items() %}
+          • {{ config.domain }} ({{ name }})
+          {% endfor %}
+
+          🔧 Next Steps:
+          1. Configure alert notification channels in AlertManager
+          2. Import additional dashboards as needed
+          3. Set up external monitoring endpoints
+          4. Configure backup for monitoring data

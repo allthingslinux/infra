@@ -22,11 +22,7 @@ provider "cloudflare" {
   api_token = var.cloudflare_api_token
 }
 
-# Data sources for available server types and images
-data "hcloud_server_types" "available" {}
-data "hcloud_images" "ubuntu" {
-  with_selector = "name==ubuntu-22.04"
-}
+
 
 # SSH Key for server access
 resource "hcloud_ssh_key" "default" {

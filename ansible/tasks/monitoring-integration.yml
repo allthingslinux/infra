@@ -139,5 +139,6 @@
       • {{ host }}: Node Exporter ({{ hostvars[host]['ansible_default_ipv4']['address'] }}:9100)
       {% endfor %}
 
-      Monitoring Status: {{ 'HEALTHY' if monitoring_health.results | selectattr('status', '==', 200) | list | length == 4 else 'PARTIAL' }}
+      Monitoring Status: {{ 'HEALTHY' if monitoring_health.results |
+                          selectattr('status', '==', 200) | list | length == 4 else 'PARTIAL' }}
   run_once: true

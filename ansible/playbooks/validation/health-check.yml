@@ -1,0 +1,461 @@
+---
+# Health Check Validation Playbook
+# Comprehensive health checks for all ATL services and infrastructure
+
+- name: "ATL Infrastructure Health Check"
+  hosts: all
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display health check banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                    ATL Health Check Suite                    ║
+          ║              Comprehensive Infrastructure Validation          ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🩺 System Health: CPU, Memory, Disk, Network
+          🐳 Container Health: Docker services and containers
+          🌐 Service Health: HTTP endpoints and SSL certificates
+          🔒 Security Health: Firewall, SSH, and access controls
+          📊 Monitoring Health: Metrics collection and alerting
+
+    - name: Initialize health check results
+      ansible.builtin.set_fact:
+        health_results:
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+          host: "{{ inventory_hostname }}"
+          checks: {}
+          overall_status: "UNKNOWN"
+          critical_issues: []
+          warnings: []
+          recommendations: []
+
+    - name: Load domain configuration
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../configs/domains.yml"
+        name: domains_config
+      delegate_to: localhost
+      run_once: true
+
+  tasks:
+    # System Health Checks
+    - name: System Health Checks
+      block:
+        - name: Check CPU usage
+          ansible.builtin.shell: |
+            set -o pipefail
+            top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//'
+          register: cpu_usage
+          changed_when: false
+
+        - name: Check memory usage
+          ansible.builtin.shell: |
+            set -o pipefail
+            free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}'
+          register: memory_usage
+          changed_when: false
+
+        - name: Check disk usage
+          ansible.builtin.shell: |
+            set -o pipefail
+            df -h / | tail -1 | awk '{print $5}' | sed 's/%//'
+          register: disk_usage
+          changed_when: false
+
+        - name: Check system load
+          ansible.builtin.shell: |
+            set -o pipefail
+            uptime | awk -F'load average:' '{print $2}' | awk '{print $1}' | sed 's/,//'
+          register: system_load
+          changed_when: false
+
+        - name: Evaluate system health
+          ansible.builtin.set_fact:
+            system_health:
+              cpu_usage: "{{ cpu_usage.stdout | float }}"
+              memory_usage: "{{ memory_usage.stdout | float }}"
+              disk_usage: "{{ disk_usage.stdout | int }}"
+              system_load: "{{ system_load.stdout | float }}"
+              status: >-
+                {{
+                  'CRITICAL' if (
+                    cpu_usage.stdout | float > 90 or
+                    memory_usage.stdout | float > 95 or
+                    disk_usage.stdout | int > 90 or
+                    system_load.stdout | float > 4.0
+                  ) else (
+                    'WARNING' if (
+                      cpu_usage.stdout | float > 80 or
+                      memory_usage.stdout | float > 85 or
+                      disk_usage.stdout | int > 80 or
+                      system_load.stdout | float > 2.0
+                    ) else 'HEALTHY'
+                  )
+                }}
+
+        - name: Update health results with system status
+          ansible.builtin.set_fact:
+            health_results: "{{ health_results | combine({'checks': health_results.checks | combine({'system': system_health})}) }}"
+
+    # Docker Health Checks
+    - name: Docker Health Checks
+      when: ansible_facts.services['docker.service'] is defined
+
+      # Service Health Checks
+      block:
+        - name: Check Docker daemon status
+          ansible.builtin.systemd:
+            name: docker
+            state: started
+          register: docker_status
+          failed_when: false
+
+        - name: Check Docker containers
+          ansible.builtin.shell: |
+            set -o pipefail
+            docker ps --format "table {{ '{{.Names}}\t{{.Status}}\t{{.Ports}}' }}" | tail -n +2
+          register: docker_containers
+          changed_when: false
+          failed_when: false
+
+        - name: Check Docker system info
+          ansible.builtin.shell: |
+            set -o pipefail
+            docker system df --format "table {{ '{{.Type}}\t{{.Total}}\t{{.Active}}\t{{.Size}}' }}"
+          register: docker_system_info
+          changed_when: false
+          failed_when: false
+
+        - name: Evaluate Docker health
+          ansible.builtin.set_fact:
+            docker_health:
+              daemon_status: "{{ 'RUNNING' if docker_status.state == 'started' else 'STOPPED' }}"
+              containers: "{{ docker_containers.stdout_lines | default([]) }}"
+              system_info: "{{ docker_system_info.stdout_lines | default([]) }}"
+              status: "{{ 'HEALTHY' if docker_status.state == 'started' else 'CRITICAL' }}"
+
+        - name: Update health results with Docker status
+          ansible.builtin.set_fact:
+            health_results: "{{ health_results | combine({'checks': health_results.checks | combine({'docker': docker_health})}) }}"
+
+    - name: Service Health Checks
+      block:
+        - name: Check if service directory exists
+          ansible.builtin.stat:
+            path: "/opt/{{ inventory_hostname }}"
+          register: service_dir
+
+        - name: Check service status
+          ansible.builtin.shell: |
+            cd "/opt/{{ inventory_hostname }}"
+            docker compose ps --format json
+          register: service_status
+          failed_when: false
+          changed_when: false
+          when: service_dir.stat.exists
+
+        - name: Check HTTP endpoint
+          ansible.builtin.uri:
+            url: "https://{{ inventory_hostname }}"
+            method: GET
+            timeout: 30
+            follow_redirects: safe
+          register: http_check
+          failed_when: false
+
+        - name: Check SSL certificate
+          ansible.builtin.uri:
+            url: "https://{{ inventory_hostname }}"
+            method: GET
+            timeout: 30
+          register: ssl_check
+          failed_when: false
+
+        - name: Evaluate service health
+          ansible.builtin.set_fact:
+            service_health:
+              directory_exists: "{{ service_dir.stat.exists }}"
+              compose_status: "{{ 'RUNNING' if service_status.changed is defined else 'UNKNOWN' }}"
+              http_status: "{{ http_check.status | default('N/A') }}"
+              http_response_time: "{{ http_check.elapsed | default(0) }}"
+              ssl_valid: "{{ ssl_check.status | default(0) in [200, 301, 302, 403] }}"
+              ssl_expiry: "{{ ssl_check.x509_certificate.not_after | default('N/A') if ssl_check.x509_certificate is defined else 'N/A' }}"
+              status: >-
+                {{
+                  'CRITICAL' if (
+                    not service_dir.stat.exists or
+                    http_check.status | default(0) not in [200, 301, 302, 403] or
+                    (ssl_check.x509_certificate is defined and
+                     (ssl_check.x509_certificate.not_after | default('') | to_datetime('%Y-%m-%d %H:%M:%S') - ansible_date_time.iso8601
+                | to_datetime('%Y-%m-%dT%H:%M:%SZ')).total_seconds() < 86400 * 7)
+                  ) else (
+                    'WARNING' if (
+                      http_check.elapsed | default(0) > 5 or
+                      (ssl_check.x509_certificate is defined and
+                       (ssl_check.x509_certificate.not_after | default('') | to_datetime('%Y-%m-%d %H:%M:%S') - ansible_date_time.iso8601
+                | to_datetime('%Y-%m-%dT%H:%M:%SZ')).total_seconds() < 86400 * 30)
+                    ) else 'HEALTHY'
+                  )
+                }}
+
+        - name: Update health results with service status
+          ansible.builtin.set_fact:
+            health_results: "{{ health_results | combine({'checks': health_results.checks | combine({'service': service_health})}) }}"
+
+    # Security Health Checks
+    - name: Security Health Checks
+      block:
+        - name: Check SSH configuration
+          ansible.builtin.shell: |
+            set -o pipefail
+            sshd -T | grep -E "(passwordauthentication|permitrootlogin|port)"
+          register: ssh_config
+          changed_when: false
+
+        - name: Check firewall status
+          ansible.builtin.shell: |
+            set -o pipefail
+            ufw status | head -1
+          register: firewall_status
+          changed_when: false
+          failed_when: false
+
+        - name: Check fail2ban status
+          ansible.builtin.systemd:
+            name: fail2ban
+            state: started
+          register: fail2ban_status
+          failed_when: false
+
+        - name: Check open ports
+          ansible.builtin.shell: |
+            set -o pipefail
+            netstat -tuln | grep LISTEN | awk '{print $4}' | sed 's/.*://' | sort -n | uniq
+          register: open_ports
+          changed_when: false
+
+        - name: Evaluate security health
+          ansible.builtin.set_fact:
+            security_health:
+              ssh_config: "{{ ssh_config.stdout_lines | default([]) }}"
+              firewall_status: "{{ firewall_status.stdout | default('inactive') }}"
+              fail2ban_status: "{{ 'RUNNING' if fail2ban_status.state == 'started' else 'STOPPED' }}"
+              open_ports: "{{ open_ports.stdout_lines | default([]) }}"
+              status: >-
+                {{
+                  'WARNING' if (
+                    'active' not in firewall_status.stdout | default('') or
+                    fail2ban_status.state != 'started'
+                  ) else 'HEALTHY'
+                }}
+
+        - name: Update health results with security status
+          ansible.builtin.set_fact:
+            health_results: "{{ health_results | combine({'checks': health_results.checks | combine({'security': security_health})}) }}"
+
+    # Network Health Checks
+    - name: Network Health Checks
+      block:
+        - name: Check network connectivity
+          ansible.builtin.shell: |
+            set -o pipefail
+            ping -c 3 8.8.8.8 | grep "packet loss" | awk '{print $6}' | sed 's/%//'
+          register: network_ping
+          changed_when: false
+          failed_when: false
+
+        - name: Check DNS resolution
+          ansible.builtin.shell: |
+            set -o pipefail
+            nslookup {{ inventory_hostname }} | grep "Address" | tail -1 | awk '{print $2}'
+          register: dns_resolution
+          changed_when: false
+          failed_when: false
+
+        - name: Check network interfaces
+          ansible.builtin.shell: |
+            set -o pipefail
+            ip addr show | grep "inet " | grep -v "127.0.0.1" | awk '{print $2}'
+          register: network_interfaces
+          changed_when: false
+
+        - name: Evaluate network health
+          ansible.builtin.set_fact:
+            network_health:
+              ping_loss: "{{ network_ping.stdout | default('100') | int }}"
+              dns_resolution: "{{ dns_resolution.stdout | default('FAILED') }}"
+              interfaces: "{{ network_interfaces.stdout_lines | default([]) }}"
+              status: >-
+                {{
+                  'CRITICAL' if (
+                    network_ping.stdout | default('100') | int > 50 or
+                    dns_resolution.stdout | default('') == ''
+                  ) else (
+                    'WARNING' if (
+                      network_ping.stdout | default('0') | int > 10
+                    ) else 'HEALTHY'
+                  )
+                }}
+
+        - name: Update health results with network status
+          ansible.builtin.set_fact:
+            health_results: "{{ health_results | combine({'checks': health_results.checks | combine({'network': network_health})}) }}"
+
+    # Monitoring Health Checks (only on atl.services)
+    - name: Monitoring Health Checks
+      when: inventory_hostname == "atl.services"
+
+      block:
+        - name: Check Prometheus status
+          ansible.builtin.uri:
+            url: "http://localhost:9090/-/ready"
+            method: GET
+            timeout: 10
+          register: prometheus_health
+          failed_when: false
+
+        - name: Check Grafana status
+          ansible.builtin.uri:
+            url: "https://metrics.atl.services/api/health"
+            method: GET
+            timeout: 10
+          register: grafana_health
+          failed_when: false
+
+        - name: Check AlertManager status
+          ansible.builtin.uri:
+            url: "http://localhost:9093/api/v1/status"
+            method: GET
+            timeout: 10
+          register: alertmanager_health
+          failed_when: false
+
+        - name: Evaluate monitoring health
+          ansible.builtin.set_fact:
+            monitoring_health:
+              prometheus_status: "{{ prometheus_health.status | default('DOWN') }}"
+              grafana_status: "{{ grafana_health.status | default('DOWN') }}"
+              alertmanager_status: "{{ alertmanager_health.status | default('DOWN') }}"
+              status: >-
+                {{
+                  'CRITICAL' if (
+                    prometheus_health.status | default(0) != 200 or
+                    grafana_health.status | default(0) not in [200, 401] or
+                    alertmanager_health.status | default(0) != 200
+                  ) else 'HEALTHY'
+                }}
+
+        - name: Update health results with monitoring status
+          ansible.builtin.set_fact:
+            health_results: "{{ health_results | combine({'checks': health_results.checks | combine({'monitoring': monitoring_health})}) }}"
+
+  post_tasks:
+    - name: Calculate overall health status
+      ansible.builtin.set_fact:
+        overall_status: >-
+          {{
+            'CRITICAL' if (
+              health_results.checks.values() | selectattr('status', 'equalto', 'CRITICAL') | list | length > 0
+            ) else (
+              'WARNING' if (
+                health_results.checks.values() | selectattr('status', 'equalto', 'WARNING') | list | length > 0
+              ) else 'HEALTHY'
+            )
+          }}
+
+    - name: Update health results with overall status
+      ansible.builtin.set_fact:
+        health_results: "{{ health_results | combine({'overall_status': overall_status}) }}"
+
+    - name: Generate health recommendations
+      ansible.builtin.set_fact:
+        recommendations: |
+          {% set recs = [] %}
+          {% if health_results.checks.system.cpu_usage > 80 %}
+          {% set _ = recs.append("High CPU usage detected - investigate running processes") %}
+          {% endif %}
+          {% if health_results.checks.system.memory_usage > 85 %}
+          {% set _ = recs.append("High memory usage detected - consider adding more RAM or optimizing applications") %}
+          {% endif %}
+          {% if health_results.checks.system.disk_usage > 80 %}
+          {% set _ = recs.append("High disk usage detected - clean up old files or expand storage") %}
+          {% endif %}
+          {% if health_results.checks.service.http_response_time > 5 %}
+          {% set _ = recs.append("Slow HTTP response time - investigate application performance") %}
+          {% endif %}
+          {% if health_results.checks.security.firewall_status != 'active' %}
+          {% set _ = recs.append("Firewall is not active - enable UFW for better security") %}
+          {% endif %}
+          {% if health_results.checks.security.fail2ban_status != 'RUNNING' %}
+          {% set _ = recs.append("Fail2ban is not running - enable for SSH protection") %}
+          {% endif %}
+          {{ recs }}
+
+    - name: Update health results with recommendations
+      ansible.builtin.set_fact:
+        health_results: "{{ health_results | combine({'recommendations': recommendations}) }}"
+
+    - name: Save health check results
+      ansible.builtin.copy:
+        content: "{{ health_results | to_nice_json }}"
+        dest: "/var/log/atl/health-check-{{ inventory_hostname }}-{{ ansible_date_time.epoch }}.json"
+        mode: "0644"
+
+    - name: Log health check completion
+      ansible.builtin.lineinfile:
+        path: "/var/log/atl/health-checks.log"
+        line: >-
+          {{ ansible_date_time.iso8601 }} - {{ inventory_hostname }} - Health Check: {{ overall_status }}
+          - Critical: {{ health_results.checks.values() | selectattr('status', 'equalto', 'CRITICAL') | list | length }}
+          - Warnings: {{ health_results.checks.values() | selectattr('status', 'equalto', 'WARNING') | list | length }}
+        create: true
+        mode: "0644"
+
+    - name: Display health check summary
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                 HEALTH CHECK SUMMARY                         ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🏥 Host: {{ inventory_hostname }}
+          📊 Overall Status: {{ overall_status }}
+          ⏰ Timestamp: {{ health_results.timestamp }}
+
+          📋 Check Results:
+          {% for check_name, check_result in health_results.checks.items() %}
+          • {{ check_name | title }}: {{ check_result.status }}
+          {% endfor %}
+
+          {% if overall_status == 'CRITICAL' %}
+          🚨 CRITICAL ISSUES DETECTED!
+          {% elif overall_status == 'WARNING' %}
+          ⚠️  WARNING CONDITIONS DETECTED
+          {% else %}
+          ✅ ALL SYSTEMS HEALTHY
+          {% endif %}
+
+          📝 Detailed Results: /var/log/atl/health-check-{{ inventory_hostname }}-{{ ansible_date_time.epoch }}.json
+
+          {% if recommendations | length > 0 %}
+          💡 Recommendations:
+          {% for rec in recommendations %}
+          • {{ rec }}
+          {% endfor %}
+          {% endif %}
+
+    - name: Log health check notification (if critical)
+      ansible.builtin.lineinfile:
+        path: "/var/log/atl/health-notifications.log"
+        line: >-
+          {{ ansible_date_time.iso8601 }} - HEALTH CHECK NOTIFICATION - {{ inventory_hostname }} - {{ overall_status }}
+          - Critical: {{ health_results.checks.values() | selectattr('status', 'equalto', 'CRITICAL') | list | length }}
+          - Warnings: {{ health_results.checks.values() | selectattr('status', 'equalto', 'WARNING') | list | length }}
+        create: true
+        mode: "0644"
+      when:
+        - overall_status == 'CRITICAL'
+        - send_health_alerts | default(true) | bool

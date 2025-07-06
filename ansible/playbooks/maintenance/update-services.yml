@@ -1,0 +1,107 @@
+---
+# Service Update Playbook
+# Updates all containerized services across ATL domains
+
+- name: "Update All Domain Services"
+  hosts: all
+  become: true
+  gather_facts: true
+  serial: "{{ update_serial | default(1) }}"
+
+  pre_tasks:
+    - name: Display update banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                    Service Update Manager                     ║
+          ║              Container Image Updates & Restarts               ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🔄 Updating services on: {{ inventory_hostname }}
+          📦 Service directory: /opt/{{ inventory_hostname }}
+          🛡️  Serial execution: {{ update_serial | default(1) }} at a time
+
+    - name: Check if service directory exists
+      ansible.builtin.stat:
+        path: "/opt/{{ inventory_hostname }}"
+      register: service_dir
+
+    - name: Verify Docker Compose file exists
+      ansible.builtin.stat:
+        path: "/opt/{{ inventory_hostname }}/docker-compose.yml"
+      register: compose_file
+
+  tasks:
+    - name: Skip if no services configured
+      ansible.builtin.meta: end_host
+      when: not service_dir.stat.exists or not compose_file.stat.exists
+
+    - name: Create backup of current compose file
+      ansible.builtin.copy:
+        src: "/opt/{{ inventory_hostname }}/docker-compose.yml"
+        dest: "/opt/{{ inventory_hostname }}/docker-compose.yml.backup-{{ ansible_date_time.epoch }}"
+        remote_src: true
+        mode: "0644"
+
+    - name: Pull latest container images
+      ansible.builtin.shell: |
+        cd "/opt/{{ inventory_hostname }}"
+        timeout 300 docker compose pull
+      register: pull_result
+      changed_when: "'Pulling' in pull_result.stdout"
+
+    - name: Display pulled images
+      ansible.builtin.debug:
+        msg: "Images updated for {{ inventory_hostname }}: {{ pull_result.actions | default([]) }}"
+
+    - name: Stop services gracefully
+      ansible.builtin.shell: |
+        cd "/opt/{{ inventory_hostname }}"
+        timeout 120 docker compose down
+      register: stop_result
+      changed_when: "'Stopping' in stop_result.stdout or 'Removed' in stop_result.stdout"
+
+    - name: Start services with updated images
+      ansible.builtin.shell: |
+        cd "/opt/{{ inventory_hostname }}"
+        timeout 300 docker compose up -d
+      register: start_result
+      changed_when: "'Started' in start_result.stdout or 'Created' in start_result.stdout"
+
+    - name: Wait for services to be healthy
+      ansible.builtin.uri:
+        url: "https://{{ inventory_hostname }}"
+        method: GET
+        status_code: [200, 301, 302, 403]
+        timeout: 30
+      register: health_check
+      retries: 10
+      delay: 15
+      failed_when: false
+
+    - name: Log update completion
+      ansible.builtin.lineinfile:
+        path: "/var/log/atl/service-updates.log"
+        line: "{{ ansible_date_time.iso8601 }} - {{ inventory_hostname }} - Services updated successfully"
+        create: true
+        mode: "0644"
+
+  post_tasks:
+    - name: Cleanup old backup files (keep last 5)
+      ansible.builtin.shell: |
+        set -o pipefail
+        cd /opt/{{ inventory_hostname }}
+        ls -t docker-compose.yml.backup-* 2>/dev/null | tail -n +6 | xargs rm -f
+      failed_when: false
+      changed_when: false
+
+    - name: Display update summary
+      ansible.builtin.debug:
+        msg: |
+          ✅ Service Update Complete for {{ inventory_hostname }}
+
+          🔄 Images: {{ 'Updated' if pull_result.changed else 'No updates available' }}
+          🚀 Services: {{ 'Restarted successfully' if start_result.changed else 'Already running' }}
+          🌐 Health: {{ 'HEALTHY' if health_check.status | default(0) in [200, 301, 302] else 'NEEDS ATTENTION' }}
+
+          Next: Verify all services are working correctly

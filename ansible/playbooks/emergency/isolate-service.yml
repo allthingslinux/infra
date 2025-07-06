@@ -1,0 +1,430 @@
+---
+# Emergency Service Isolation Playbook
+# Isolates problematic services to prevent cascade failures
+
+- name: "Emergency Service Isolation"
+  hosts: "{{ target_host | default('localhost') }}"
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display emergency isolation banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                  EMERGENCY SERVICE ISOLATION                 ║
+          ║                    Prevent Cascade Failures                  ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🚨 EMERGENCY ISOLATION INITIATED
+          🎯 Target Host: {{ target_host | default('localhost') }}
+          🔒 Service: {{ service_name | default('ALL') }}
+          🛡️  Action: {{ isolation_action | default('stop') }}
+
+          WARNING: This will isolate services and may cause service unavailability!
+
+    - name: Validate required parameters
+      ansible.builtin.fail:
+        msg: "Missing required parameter: {{ item }}"
+      when:
+        - vars[item] is not defined or vars[item] == ""
+        - isolation_action | default('stop') != 'status'
+      loop:
+        - target_host
+
+    - name: Confirm emergency isolation
+      ansible.builtin.pause:
+        prompt: |2
+
+          ⚠️  EMERGENCY ISOLATION CONFIRMATION ⚠️
+
+          You are about to isolate services on: {{ inventory_hostname }}
+          Service: {{ service_name | default('ALL SERVICES') }}
+          Action: {{ isolation_action | default('stop') }}
+
+          This action will:
+          • Stop the specified service(s)
+          • Remove from load balancer (if configured)
+          • Prevent automatic restart
+          • Log all actions for audit
+
+          Press ENTER to continue or Ctrl+C to abort
+        seconds: "{{ confirmation_timeout | default(30) }}"
+      when: confirm_isolation | default(true) | bool
+
+    - name: Log emergency isolation initiation
+      ansible.builtin.lineinfile:
+        path: "/var/log/atl/emergency-isolation.log"
+        line: >-
+          {{ ansible_date_time.iso8601 }} - EMERGENCY ISOLATION INITIATED on {{ inventory_hostname }}
+          - Service: {{ service_name | default('ALL') }}
+          - Action: {{ isolation_action | default('stop') }}
+          - User: {{ ansible_user }}
+        create: true
+        mode: "0644"
+
+  tasks:
+    - name: Check if service directory exists
+      ansible.builtin.stat:
+        path: "/opt/{{ inventory_hostname }}"
+      register: service_dir
+
+    - name: Skip if no services configured
+      ansible.builtin.meta: end_host
+      when: not service_dir.stat.exists
+
+    - name: Get current service status
+      ansible.builtin.shell: |
+        cd "/opt/{{ inventory_hostname }}"
+        docker compose ps --format json
+      register: current_status
+      failed_when: false
+      changed_when: false
+
+    - name: Display current service status
+      ansible.builtin.debug:
+        msg: |
+          Current service status on {{ inventory_hostname }}:
+          {% if current_status.services is defined %}
+          {% for service, status in current_status.services.items() %}
+          • {{ service }}: {{ status.state | default('unknown') }}
+          {% endfor %}
+          {% else %}
+          • No services detected or Docker Compose not available
+          {% endif %}
+
+    # Service isolation actions
+    - name: Service isolation actions
+      block:
+        # Stop specific service
+        - name: Stop specific service
+          ansible.builtin.shell: |
+            cd "/opt/{{ inventory_hostname }}"
+            timeout {{ stop_timeout | default(60) }} docker compose stop {{ service_name }}
+          register: stop_result
+          when:
+            - isolation_action | default('stop') == 'stop'
+            - service_name is defined
+            - service_name != 'ALL'
+          changed_when: "'Stopping' in stop_result.stdout"
+
+        # Stop all services
+        - name: Stop all services
+          ansible.builtin.shell: |
+            cd "/opt/{{ inventory_hostname }}"
+            timeout {{ stop_timeout | default(120) }} docker compose down
+          register: stop_all_result
+          when:
+            - isolation_action | default('stop') == 'stop'
+            - service_name is not defined or service_name == 'ALL'
+          changed_when: "'Stopping' in stop_all_result.stdout or 'Removed' in stop_all_result.stdout"
+
+        # Disable service from starting
+        - name: Create service isolation marker
+          ansible.builtin.file:
+            path: "/opt/{{ inventory_hostname }}/.isolated"
+            state: touch
+            mode: "0644"
+          when: isolation_action | default('stop') == 'stop'
+
+        - name: Add isolation metadata
+          ansible.builtin.copy:
+            dest: "/opt/{{ inventory_hostname }}/.isolated"
+            content: |
+              # Service Isolation Marker
+              # Created: {{ ansible_date_time.iso8601 }}
+              # User: {{ ansible_user }}
+              # Reason: Emergency isolation
+              # Service: {{ service_name | default('ALL') }}
+              # Action: {{ isolation_action | default('stop') }}
+
+              # To restore service:
+              # 1. Remove this file: rm /opt/{{ inventory_hostname }}/.isolated
+              # 2. Restart services: cd /opt/{{ inventory_hostname }} && docker-compose up -d
+              # 3. Verify health: curl -I https://{{ inventory_hostname }}
+            mode: "0644"
+          when: isolation_action | default('stop') == 'stop'
+
+        # Remove from load balancer (if using external LB)
+        - name: Remove from load balancer
+          ansible.builtin.uri:
+            url: "{{ load_balancer_api_url }}/remove/{{ inventory_hostname }}"
+            method: POST
+            headers:
+              Authorization: "Bearer {{ load_balancer_api_token }}"
+            status_code: [200, 202, 404]
+          register: lb_removal
+          failed_when: false
+          when:
+            - isolation_action | default('stop') == 'stop'
+            - load_balancer_api_url is defined
+            - remove_from_lb | default(true) | bool
+
+        # Update monitoring to suppress alerts
+        - name: Create monitoring suppression
+          ansible.builtin.copy:
+            dest: "/opt/monitoring/suppressions/{{ inventory_hostname }}.yml"
+            content: |
+              # Monitoring suppression for isolated service
+              # Created: {{ ansible_date_time.iso8601 }}
+              # Service: {{ service_name | default('ALL') }}
+              # Reason: Emergency isolation
+
+              suppressions:
+                - alert: ServiceDown
+                  instance: "{{ inventory_hostname }}"
+                  reason: "Emergency isolation"
+                  duration: "{{ suppression_duration | default('24h') }}"
+                  created_by: "{{ ansible_user }}"
+            mode: "0644"
+          delegate_to: "{{ groups['atl_services'][0] }}"
+          when:
+            - isolation_action | default('stop') == 'stop'
+            - suppress_monitoring | default(true) | bool
+
+        # Quarantine mode - limit network access
+        - name: Enable quarantine mode
+          when: isolation_action | default('stop') == 'quarantine'
+
+          # Status check mode
+          block:
+            - name: Create quarantine iptables rules
+              ansible.builtin.iptables:
+                chain: OUTPUT
+                source: "{{ ansible_default_ipv4.address }}"
+                jump: DROP
+                comment: "Emergency quarantine - {{ service_name | default('ALL') }}"
+              when: enable_network_quarantine | default(false) | bool
+
+            - name: Allow essential services
+              ansible.builtin.iptables:
+                chain: OUTPUT
+                source: "{{ ansible_default_ipv4.address }}"
+                destination: "{{ item }}"
+                jump: ACCEPT
+                comment: "Emergency quarantine - essential access"
+              loop:
+                - "8.8.8.8" # DNS
+                - "1.1.1.1" # DNS
+                - "{{ ansible_default_ipv4.gateway }}" # Gateway
+              when: enable_network_quarantine | default(false) | bool
+
+        - name: Check isolation status
+          when: isolation_action | default('stop') == 'status'
+
+          # Restore service
+          block:
+            - name: Check if service is isolated
+              ansible.builtin.stat:
+                path: "/opt/{{ inventory_hostname }}/.isolated"
+              register: isolation_marker
+
+            - name: Read isolation details
+              ansible.builtin.slurp:
+                src: "/opt/{{ inventory_hostname }}/.isolated"
+              register: isolation_details
+              when: isolation_marker.stat.exists
+
+            - name: Display isolation status
+              ansible.builtin.debug:
+                msg: |
+                  Isolation Status for {{ inventory_hostname }}:
+
+                  {% if isolation_marker.stat.exists %}
+                  🔒 SERVICE IS ISOLATED
+
+                  Isolation Details:
+                  {{ isolation_details.content | b64decode }}
+                  {% else %}
+                  ✅ SERVICE IS NOT ISOLATED
+                  {% endif %}
+
+        - name: Restore isolated service
+          when: isolation_action | default('stop') == 'restore'
+
+          block:
+            - name: Remove isolation marker
+              ansible.builtin.file:
+                path: "/opt/{{ inventory_hostname }}/.isolated"
+                state: absent
+
+            - name: Remove monitoring suppression
+              ansible.builtin.file:
+                path: "/opt/monitoring/suppressions/{{ inventory_hostname }}.yml"
+                state: absent
+              delegate_to: "{{ groups['atl_services'][0] }}"
+              failed_when: false
+
+            - name: Remove quarantine rules
+              ansible.builtin.iptables:
+                chain: OUTPUT
+                source: "{{ ansible_default_ipv4.address }}"
+                jump: DROP
+                comment: "Emergency quarantine - {{ service_name | default('ALL') }}"
+                state: absent
+              failed_when: false
+              when: enable_network_quarantine | default(false) | bool
+
+            - name: Restart services
+              ansible.builtin.shell: |
+                cd "/opt/{{ inventory_hostname }}"
+                timeout 300 docker compose up -d
+              register: restore_result
+              changed_when: "'Started' in restore_result.stdout or 'Created' in restore_result.stdout"
+
+            - name: Add back to load balancer
+              ansible.builtin.uri:
+                url: "{{ load_balancer_api_url }}/add/{{ inventory_hostname }}"
+                method: POST
+                headers:
+                  Authorization: "Bearer {{ load_balancer_api_token }}"
+                status_code: [200, 202]
+              register: lb_addition
+              failed_when: false
+              when:
+                - load_balancer_api_url is defined
+                - remove_from_lb | default(true) | bool
+
+            - name: Verify service health after restore
+              ansible.builtin.uri:
+                url: "https://{{ inventory_hostname }}"
+                method: GET
+                status_code: [200, 301, 302, 403]
+                timeout: 30
+              register: restore_health_check
+              retries: 10
+              delay: 15
+              failed_when: false
+
+        - name: Log isolation action completion
+          ansible.builtin.lineinfile:
+            path: "/var/log/atl/emergency-isolation.log"
+            line: >-
+              {{ ansible_date_time.iso8601 }} - EMERGENCY ISOLATION {{ isolation_action | default('stop') | upper }}
+              COMPLETED on {{ inventory_hostname }}
+              - Service: {{ service_name | default('ALL') }}
+              - Status: {{ 'SUCCESS' if (stop_result.changed | default(false)) or
+              (stop_all_result.changed | default(false)) or (restore_result.changed | default(false)) else 'FAILED' }}
+            create: true
+            mode: "0644"
+
+      rescue:
+        - name: Log isolation failure
+          ansible.builtin.lineinfile:
+            path: "/var/log/atl/emergency-isolation.log"
+            line: >-
+              {{ ansible_date_time.iso8601 }} - EMERGENCY ISOLATION FAILED on {{ inventory_hostname }}
+              - Service: {{ service_name | default('ALL') }}
+              - Error: {{ ansible_failed_result.msg | default('Unknown error') }}
+            create: true
+            mode: "0644"
+
+        - name: Display isolation failure
+          ansible.builtin.debug:
+            msg: |
+              ❌ Emergency isolation failed on {{ inventory_hostname }}
+              Service: {{ service_name | default('ALL') }}
+              Error: {{ ansible_failed_result.msg | default('Unknown error') }}
+
+              Manual intervention required!
+              Check logs: /var/log/atl/emergency-isolation.log
+
+  post_tasks:
+    - name: Generate isolation report
+      ansible.builtin.set_fact:
+        isolation_report:
+          host: "{{ inventory_hostname }}"
+          service: "{{ service_name | default('ALL') }}"
+          action: "{{ isolation_action | default('stop') }}"
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+          status: >-
+            {{ 'SUCCESS' if (stop_result.changed | default(false)) or
+            (stop_all_result.changed | default(false)) or
+            (restore_result.changed | default(false)) else 'COMPLETED' }}
+          isolated: >-
+            {{ isolation_marker.stat.exists | default(false) if isolation_action == 'status'
+            else (isolation_action == 'stop') }}
+
+    - name: Display isolation summary
+      ansible.builtin.debug:
+        msg: |
+          {% if isolation_action | default('stop') == 'stop' %}
+          🔒 EMERGENCY ISOLATION COMPLETED
+          {% elif isolation_action == 'restore' %}
+          ✅ SERVICE RESTORATION COMPLETED
+          {% elif isolation_action == 'status' %}
+          📊 ISOLATION STATUS CHECK COMPLETED
+          {% else %}
+          🔧 ISOLATION ACTION COMPLETED
+          {% endif %}
+
+          🎯 Host: {{ isolation_report.host }}
+          🔧 Service: {{ isolation_report.service }}
+          ⚡ Action: {{ isolation_report.action }}
+          ⏰ Timestamp: {{ isolation_report.timestamp }}
+          📊 Status: {{ isolation_report.status }}
+
+          {% if isolation_action == 'stop' %}
+          🔒 Service is now ISOLATED
+          • Monitoring alerts suppressed
+          • Automatic restart disabled
+          • Load balancer updated (if configured)
+
+          To restore: ansible-playbook emergency/isolate-service.yml \
+              -e "target_host={{ inventory_hostname }}" -e "isolation_action=restore"
+          {% elif isolation_action == 'restore' %}
+          ✅ Service is now RESTORED
+          • Monitoring alerts re-enabled
+          • Services restarted
+          • Load balancer updated (if configured)
+          • Health check: {{ restore_health_check.status | default('N/A') }}
+          {% elif isolation_action == 'status' %}
+          📊 Isolation Status: {{ 'ISOLATED' if isolation_report.isolated else 'ACTIVE' }}
+          {% endif %}
+
+          📝 Full logs: /var/log/atl/emergency-isolation.log
+
+    - name: Create isolation management script
+      ansible.builtin.copy:
+        dest: "/usr/local/bin/atl-isolation-manager.sh"
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          # ATL Service Isolation Management Script
+
+          PLAYBOOK_DIR="/opt/ansible/playbooks"
+
+          case "$1" in
+            isolate)
+              echo "Isolating service $2 on host $3..."
+              ansible-playbook "$PLAYBOOK_DIR/emergency/isolate-service.yml" \
+                -e "target_host=$3" \
+                -e "service_name=$2" \
+                -e "isolation_action=stop" \
+                -e "confirm_isolation=false"
+              ;;
+            restore)
+              echo "Restoring service $2 on host $3..."
+              ansible-playbook "$PLAYBOOK_DIR/emergency/isolate-service.yml" \
+                -e "target_host=$3" \
+                -e "service_name=$2" \
+                -e "isolation_action=restore" \
+                -e "confirm_isolation=false"
+              ;;
+            status)
+              echo "Checking isolation status for host $2..."
+              ansible-playbook "$PLAYBOOK_DIR/emergency/isolate-service.yml" \
+                -e "target_host=$2" \
+                -e "isolation_action=status" \
+                -e "confirm_isolation=false"
+              ;;
+            *)
+              echo "Usage: $0 {isolate|restore|status} [service_name] <host>"
+              echo "Examples:"
+              echo "  $0 isolate nginx atl.services"
+              echo "  $0 restore nginx atl.services"
+              echo "  $0 status atl.services"
+              exit 1
+              ;;
+          esac
+      when: isolation_action | default('stop') == 'stop'

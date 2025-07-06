@@ -49,7 +49,8 @@
           Run the following commands to deploy each domain:
 
           {% for name, config in enabled_domains.items() %}
-          ansible-playbook playbooks/domains/generic-domain.yml --limit {{ name }} --extra-vars "target_domain={{ name }}"
+          ansible-playbook playbooks/domains/generic-domain.yml \
+            --limit {{ name }} --extra-vars "target_domain={{ name }}"
           {% endfor %}
 
     - name: "Display deployment instructions"

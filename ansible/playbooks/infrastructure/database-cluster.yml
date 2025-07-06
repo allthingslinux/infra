@@ -85,12 +85,12 @@
       notify: Restart database services
 
     - name: Start database cluster services
-      community.docker.docker_compose:
-        project_src: /opt/database-cluster
-        state: present
-        pull: true
-        remove_orphans: true
+      ansible.builtin.shell: |
+        cd /opt/database-cluster
+        docker compose pull
+        docker compose up -d --remove-orphans
       register: database_cluster_result
+      changed_when: "'Started' in database_cluster_result.stdout or 'Created' in database_cluster_result.stdout"
 
     - name: Wait for PostgreSQL to be healthy
       ansible.builtin.uri:
@@ -131,10 +131,10 @@
 
   handlers:
     - name: Restart database services
-      community.docker.docker_compose:
-        project_src: /opt/database-cluster
-        state: present
-        restarted: true
+      ansible.builtin.shell: |
+        cd /opt/database-cluster
+        docker compose restart
+      changed_when: true
 
     - name: Restart monitoring
       ansible.builtin.systemd:

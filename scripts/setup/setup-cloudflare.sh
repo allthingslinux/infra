@@ -80,7 +80,7 @@ guide_token_creation() {
     echo "5. Add zone resource: Include - Zone - your-domain.com"
     echo "6. Copy the token (you won't see it again!)"
     echo
-    read -p "Press Enter when you have created your token..."
+    read -r -p "Press Enter when you have created your token..."
 }
 
 # Get token from user
@@ -88,7 +88,7 @@ get_api_token() {
     echo
     log "Enter your Cloudflare API token:"
     echo "(Input will be hidden for security)"
-    read -s -p "Token: " CLOUDFLARE_API_TOKEN
+    read -r -s -p "Token: " CLOUDFLARE_API_TOKEN
     echo
 
     if [[ -z $CLOUDFLARE_API_TOKEN ]]; then
@@ -139,7 +139,7 @@ test_token() {
 get_domain() {
     echo
     log "Enter your domain name (e.g., allthingslinux.org):"
-    read -p "Domain: " DOMAIN_NAME
+    read -r -p "Domain: " DOMAIN_NAME
 
     if [[ -z $DOMAIN_NAME ]]; then
         error "Domain cannot be empty"
@@ -327,7 +327,7 @@ main() {
     echo "3) Both"
     echo "4) Nothing (exit)"
     echo
-    read -p "Choice (1-4): " choice
+    read -r -p "Choice (1-4): " choice
 
     case "$choice" in
     1)

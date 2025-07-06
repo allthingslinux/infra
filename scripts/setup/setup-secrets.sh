@@ -85,9 +85,11 @@ if [[ -n $SHELL_RC ]] && [[ -f $SHELL_RC ]]; then
         echo -e "${YELLOW}Would you like to automatically source the environment file in your shell? (y/N)${NC}"
         read -r response
         if [[ $response =~ ^[Yy]$ ]]; then
-            echo "" >>"$SHELL_RC"
-            echo "# All Things Linux Infrastructure" >>"$SHELL_RC"
-            echo "[ -f ~/.config/atl-infra/env ] && source ~/.config/atl-infra/env" >>"$SHELL_RC"
+            {
+                echo ""
+                echo "# All Things Linux Infrastructure"
+                echo "[ -f ~/.config/atl-infra/env ] && source ~/.config/atl-infra/env"
+            } >>"$SHELL_RC"
             echo -e "${GREEN}✅ Added auto-sourcing to $SHELL_RC${NC}"
         fi
     else

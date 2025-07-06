@@ -38,11 +38,7 @@ variable "custom_rules" {
   default = []
 }
 
-variable "enable_ddos_protection" {
-  description = "Enable DDoS protection"
-  type        = bool
-  default     = false
-}
+
 
 variable "tags" {
   description = "Tags to apply to all resources"

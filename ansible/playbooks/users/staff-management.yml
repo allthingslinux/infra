@@ -99,8 +99,9 @@
     - name: Configure limited sudo access for assistant administrators
       ansible.builtin.lineinfile:
         path: /etc/sudoers.d/atl-assistants
-        line: "%assistant_administrator ALL=(ALL) NOPASSWD:/bin/systemctl restart *, /bin/systemctl status *, /bin/systemctl
-          reload *, /usr/bin/docker *"
+        line: >-
+          %assistant_administrator ALL=(ALL) NOPASSWD:/bin/systemctl restart *,
+          /bin/systemctl status *, /bin/systemctl reload *, /usr/bin/docker *
         create: true
         mode: "0440"
         validate: "visudo -cf %s"

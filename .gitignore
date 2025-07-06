@@ -166,6 +166,7 @@ ansible/**/.ansible/*
 .ansible/collections
 .ansible/roles
 .ansible/facts_cache
+.ansible/modules
 
 # Sensitive inventory files
 ansible/inventories/*/terraform_inventory.json

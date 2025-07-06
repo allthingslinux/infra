@@ -174,8 +174,15 @@
 - name: "Phase 8: Configure Backup Systems"
   import_playbook: infrastructure/backup-setup.yml
 
-# Phase 9: Final Configuration and Integration
-- name: "Phase 9: Final Configuration"
+# Phase 9: Monitoring and Alerting Setup
+- name: "Phase 9: Deploy Monitoring Stack"
+  import_playbook: monitoring/deploy-stack.yml
+
+- name: "Phase 9b: Configure Monitoring Alerts"
+  import_playbook: monitoring/configure-alerts.yml
+
+# Phase 10: Final Configuration and Integration
+- name: "Phase 10: Final Configuration"
   hosts: all
   gather_facts: true
   become: true
@@ -194,14 +201,23 @@
       ansible.builtin.include_tasks: tasks/monitoring-integration.yml
       when: monitoring_enabled | default(true)
 
+# Phase 11: Validation and Health Checks
+- name: "Phase 11: Infrastructure Health Check"
+  import_playbook: validation/health-check.yml
+
+- name: "Phase 11b: Security Compliance Check"
+  import_playbook: security/compliance-check.yml
+
+- name: "Phase 11c: Backup Verification"
+  import_playbook: validation/backup-verification.yml
+
 # Final verification and summary
 - name: "Infrastructure Deployment Summary"
   hosts: all
   gather_facts: true
   tasks:
     - name: Collect service status
-      ansible.builtin.command: docker ps --format "table {{ '{{' }}.Names{{ '}}' }}\t{{ '{{' }}.Status{{ '}}' }}\t{{
-        '{{' }}.Ports{{ '}}' }}"
+      ansible.builtin.command: docker ps --format "table {{ '{{' }}.Names{{ '}}' }}\t{{ '{{' }}.Status{{ '}}' }}\t{{ '{{' }}.Ports{{ '}}' }}"
       register: docker_status
       changed_when: false
       ignore_errors: true

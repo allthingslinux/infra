@@ -1,0 +1,234 @@
+---
+# Emergency Service Restart Playbook
+# Quick service restart for emergency situations
+
+- name: "Emergency Service Restart"
+  hosts: "{{ target_hosts | default('all') }}"
+  become: true
+  gather_facts: true
+  serial: "{{ restart_serial | default(1) }}"
+
+  pre_tasks:
+    - name: Display emergency restart banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                    EMERGENCY SERVICE RESTART                 ║
+          ║                  Critical Service Recovery                    ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🚨 EMERGENCY RESTART INITIATED
+          🎯 Target: {{ target_hosts | default('all') }}
+          🔄 Mode: {{ restart_mode | default('graceful') }}
+          ⚡ Serial: {{ restart_serial | default(1) }} host(s) at a time
+
+          WARNING: This will restart services and may cause brief downtime!
+
+    - name: Confirm emergency restart
+      ansible.builtin.pause:
+        prompt: |2
+
+          ⚠️  EMERGENCY RESTART CONFIRMATION ⚠️
+
+          You are about to restart services on: {{ inventory_hostname }}
+
+          This action will:
+          • Stop all running containers
+          • Restart Docker services
+          • Bring services back online
+
+          Press ENTER to continue or Ctrl+C to abort
+        seconds: "{{ confirmation_timeout | default(30) }}"
+      when: confirm_restart | default(true) | bool
+
+    - name: Log emergency restart initiation
+      ansible.builtin.lineinfile:
+        path: "/var/log/atl/emergency-restart.log"
+        line: >-
+          {{ ansible_date_time.iso8601 }} - EMERGENCY RESTART INITIATED on {{ inventory_hostname }}
+          by {{ ansible_user }}
+        create: true
+        mode: "0644"
+
+  tasks:
+    - name: Check if service directory exists
+      ansible.builtin.stat:
+        path: "/opt/{{ inventory_hostname }}"
+      register: service_dir
+
+    - name: Skip if no services configured
+      ansible.builtin.meta: end_host
+      when: not service_dir.stat.exists
+
+    - name: Create service backup before restart
+      ansible.builtin.copy:
+        src: "/opt/{{ inventory_hostname }}/docker-compose.yml"
+        dest: "/opt/{{ inventory_hostname }}/docker-compose.yml.emergency-backup-{{ ansible_date_time.epoch }}"
+        remote_src: true
+        mode: "0644"
+      when: service_dir.stat.exists
+
+    - name: Check current service status
+      ansible.builtin.shell: |
+        cd "/opt/{{ inventory_hostname }}"
+        docker compose ps --format json
+      register: current_status
+      failed_when: false
+      changed_when: false
+
+    - name: Display current service status
+      ansible.builtin.debug:
+        msg: |
+          Current service status on {{ inventory_hostname }}:
+          {% if current_status.stdout %}
+          {{ current_status.stdout }}
+          {% else %}
+          • No services detected or Docker Compose not available
+          {% endif %}
+
+    # Emergency restart sequence
+    - name: Emergency restart sequence
+      block:
+        - name: Stop all services (emergency mode)
+          ansible.builtin.shell: |
+            cd "/opt/{{ inventory_hostname }}"
+            timeout {{ stop_timeout | default(30) }} docker compose down
+          register: stop_result
+          when: restart_mode | default('graceful') == 'emergency'
+          changed_when: "'Stopping' in stop_result.stdout or 'Removed' in stop_result.stdout"
+
+        - name: Stop all services (graceful mode)
+          ansible.builtin.shell: |
+            cd "/opt/{{ inventory_hostname }}"
+            timeout {{ stop_timeout | default(120) }} docker compose down --timeout 60
+          register: stop_result
+          when: restart_mode | default('graceful') == 'graceful'
+          changed_when: "'Stopping' in stop_result.stdout or 'Removed' in stop_result.stdout"
+
+        - name: Wait for services to fully stop
+          ansible.builtin.pause:
+            seconds: "{{ stop_wait | default(10) }}"
+
+        - name: Clean up Docker resources (if requested)
+          when: cleanup_docker | default(false) | bool
+
+          block:
+            - name: Remove unused Docker networks
+              community.docker.docker_prune:
+                networks: true
+
+            - name: Remove unused Docker volumes (if safe)
+              community.docker.docker_prune:
+                volumes: true
+                volumes_filters:
+                  dangling: true
+              when: cleanup_volumes | default(false) | bool
+
+        - name: Start services with fresh configuration
+          ansible.builtin.shell: |
+            cd "/opt/{{ inventory_hostname }}"
+            timeout {{ start_timeout | default(300) }} docker compose up -d
+          register: start_result
+          changed_when: "'Started' in start_result.stdout or 'Created' in start_result.stdout"
+
+        - name: Wait for services to initialize
+          ansible.builtin.pause:
+            seconds: "{{ start_wait | default(30) }}"
+
+        - name: Verify service health
+          ansible.builtin.uri:
+            url: "https://{{ inventory_hostname }}"
+            method: GET
+            status_code: [200, 301, 302, 403]
+            timeout: 30
+          register: health_check
+          retries: "{{ health_retries | default(10) }}"
+          delay: "{{ health_delay | default(15) }}"
+          failed_when: false
+
+        - name: Log restart completion
+          ansible.builtin.lineinfile:
+            path: "/var/log/atl/emergency-restart.log"
+            line: >-
+              {{ ansible_date_time.iso8601 }} - EMERGENCY RESTART COMPLETED on {{ inventory_hostname }}
+              - Health: {{ 'OK' if health_check.status | default(0) in [200, 301, 302] else 'NEEDS ATTENTION' }}
+            create: true
+            mode: "0644"
+
+      rescue:
+        - name: Log restart failure
+          ansible.builtin.lineinfile:
+            path: "/var/log/atl/emergency-restart.log"
+            line: >-
+              {{ ansible_date_time.iso8601 }} - EMERGENCY RESTART FAILED on {{ inventory_hostname }}
+              - Error: {{ ansible_failed_result.msg | default('Unknown error') }}
+            create: true
+            mode: "0644"
+
+        - name: Attempt service recovery
+          ansible.builtin.shell: |
+            cd "/opt/{{ inventory_hostname }}"
+            timeout 300 docker compose up -d
+          register: recovery_attempt
+          failed_when: false
+          changed_when: "'Started' in recovery_attempt.stdout or 'Created' in recovery_attempt.stdout"
+
+        - name: Display recovery status
+          ansible.builtin.debug:
+            msg: |
+              ❌ Emergency restart failed on {{ inventory_hostname }}
+              🔄 Recovery attempt: {{ 'Successful' if recovery_attempt.changed else 'Failed' }}
+
+              Manual intervention may be required!
+              Check logs: /var/log/atl/emergency-restart.log
+
+        - name: Fail if recovery also failed
+          ansible.builtin.fail:
+            msg: "Emergency restart and recovery both failed on {{ inventory_hostname }}"
+          when: not recovery_attempt.changed
+
+  post_tasks:
+    - name: Generate restart report
+      ansible.builtin.set_fact:
+        restart_report:
+          host: "{{ inventory_hostname }}"
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+          status: "{{ 'SUCCESS' if health_check.status | default(0) in [200, 301, 302] else 'ATTENTION_NEEDED' }}"
+          health_url: "https://{{ inventory_hostname }}"
+          health_status: "{{ health_check.status | default('N/A') }}"
+          services_stopped: "{{ stop_result.changed | default(false) }}"
+          services_started: "{{ start_result.changed | default(false) }}"
+
+    - name: Display restart summary
+      ansible.builtin.debug:
+        msg: |
+          {% if restart_report.status == 'SUCCESS' %}
+          ✅ EMERGENCY RESTART SUCCESSFUL
+          {% else %}
+          ⚠️  EMERGENCY RESTART NEEDS ATTENTION
+          {% endif %}
+
+          🎯 Host: {{ restart_report.host }}
+          ⏰ Completed: {{ restart_report.timestamp }}
+          🌐 Health Check: {{ restart_report.health_url }} ({{ restart_report.health_status }})
+
+          🔄 Actions Taken:
+          • Services stopped: {{ 'Yes' if restart_report.services_stopped else 'No' }}
+          • Services started: {{ 'Yes' if restart_report.services_started else 'No' }}
+
+          📝 Full logs: /var/log/atl/emergency-restart.log
+
+          {% if restart_report.status != 'SUCCESS' %}
+          🚨 MANUAL VERIFICATION REQUIRED!
+          Check the service status manually and investigate any issues.
+          {% endif %}
+
+    - name: Log emergency restart notification
+      ansible.builtin.lineinfile:
+        path: "/var/log/atl/emergency-notifications.log"
+        line: >-
+          {{ ansible_date_time.iso8601 }} - EMERGENCY RESTART NOTIFICATION - {{ inventory_hostname }}
+          - {{ restart_report.status }} - {{ restart_report.health_url }} ({{ restart_report.health_status }})
+        create: true
+        mode: "0644"
+      when: send_notifications | default(true) | bool

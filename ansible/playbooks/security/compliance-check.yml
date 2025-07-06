@@ -1,0 +1,480 @@
+---
+# Security Compliance Check Playbook
+# 501(c)(3) compliance and security auditing for ATL infrastructure
+
+- name: "ATL Security Compliance Check"
+  hosts: all
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display security compliance banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                ATL Security Compliance Check                 ║
+          ║              501(c)(3) & Infrastructure Security             ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🔒 Access Control: User accounts, SSH keys, and permissions
+          🛡️  System Security: Firewall, fail2ban, and hardening
+          📋 Compliance: 501(c)(3) requirements and audit trail
+          🔍 Vulnerability Scan: System and application security
+          📊 Reporting: Comprehensive security assessment
+
+    - name: Initialize security compliance results
+      ansible.builtin.set_fact:
+        security_results:
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+          host: "{{ inventory_hostname }}"
+          compliance_checks: {}
+          security_checks: {}
+          vulnerabilities: []
+          overall_status: "UNKNOWN"
+          recommendations: []
+          audit_trail: []
+
+  tasks:
+    # Access Control Compliance
+    - name: Access Control Compliance
+      block:
+        - name: Check user accounts
+          ansible.builtin.shell: |
+            set -o pipefail
+            cut -d: -f1,3,6 /etc/passwd | awk -F: '$2 >= 1000 {print $1":"$3":"$3}'
+          register: user_accounts
+          changed_when: false
+
+        - name: Check sudo access
+          ansible.builtin.shell: |
+            set -o pipefail
+            grep -E "^[^#]*ALL.*ALL" /etc/sudoers /etc/sudoers.d/* 2>/dev/null || echo "No unrestricted sudo access"
+          register: sudo_access
+          changed_when: false
+
+        - name: Check SSH key authentication
+          ansible.builtin.shell: |
+            set -o pipefail
+            grep -E "^PubkeyAuthentication|^PasswordAuthentication|^PermitRootLogin" /etc/ssh/sshd_config
+          register: ssh_auth_config
+          changed_when: false
+
+        - name: Check active SSH sessions
+          ansible.builtin.shell: |
+            set -o pipefail
+            who | wc -l
+          register: active_sessions
+          changed_when: false
+
+        - name: Check failed login attempts
+          ansible.builtin.shell: |
+            set -o pipefail
+            grep "Failed password" /var/log/auth.log 2>/dev/null | tail -10 | wc -l || echo "0"
+          register: failed_logins
+          changed_when: false
+
+        - name: Evaluate access control compliance
+          ansible.builtin.set_fact:
+            access_control_compliance:
+              user_accounts: "{{ user_accounts.stdout_lines | default([]) }}"
+              sudo_access: "{{ sudo_access.stdout_lines | default([]) }}"
+              ssh_config: "{{ ssh_auth_config.stdout_lines | default([]) }}"
+              active_sessions: "{{ active_sessions.stdout | int }}"
+              failed_logins: "{{ failed_logins.stdout | int }}"
+              status: >-
+                {{
+                  'COMPLIANT' if (
+                    'PasswordAuthentication no' in ssh_auth_config.stdout and
+                    'PermitRootLogin no' in ssh_auth_config.stdout and
+                    failed_logins.stdout | int < 5
+                  ) else 'NON_COMPLIANT'
+                }}
+
+        - name: Update security results with access control
+          ansible.builtin.set_fact:
+            security_results: "{{ security_results | combine({'compliance_checks': security_results.compliance_checks | combine({'access_control': access_control_compliance})}) }}"
+
+    # Data Protection Compliance (501c3 requirement)
+    - name: Data Protection Compliance
+      block:
+        - name: Check file permissions on sensitive directories
+          ansible.builtin.shell: |
+            set -o pipefail
+            find /opt /etc /var/log -type d -perm -o+w 2>/dev/null | head -10
+          register: world_writable_dirs
+          changed_when: false
+
+        - name: Check for unencrypted sensitive files
+          ansible.builtin.shell: |
+            set -o pipefail
+            find /opt /etc -name "*.key" -o -name "*.pem" -o -name "*.env" -type f 2>/dev/null | head -10
+          register: sensitive_files
+          changed_when: false
+
+        - name: Check file ownership
+          ansible.builtin.shell: |
+            set -o pipefail
+            find /opt -type f ! -user root ! -user www-data ! -user $(whoami) 2>/dev/null | head -5
+          register: unusual_ownership
+          changed_when: false
+
+        - name: Check backup encryption
+          ansible.builtin.shell: |
+            set -o pipefail
+            find /opt/backups /var/backups -name "*.gpg" -o -name "*.enc" 2>/dev/null | wc -l
+          register: encrypted_backups
+          changed_when: false
+
+        - name: Evaluate data protection compliance
+          ansible.builtin.set_fact:
+            data_protection_compliance:
+              world_writable_dirs: "{{ world_writable_dirs.stdout_lines | default([]) }}"
+              sensitive_files: "{{ sensitive_files.stdout_lines | default([]) }}"
+              unusual_ownership: "{{ unusual_ownership.stdout_lines | default([]) }}"
+              encrypted_backups: "{{ encrypted_backups.stdout | int }}"
+              status: >-
+                {{
+                  'COMPLIANT' if (
+                    world_writable_dirs.stdout_lines | default([]) | length == 0 and
+                    unusual_ownership.stdout_lines | default([]) | length == 0
+                  ) else 'NON_COMPLIANT'
+                }}
+
+        - name: Update security results with data protection
+          ansible.builtin.set_fact:
+            security_results: "{{ security_results | combine({'compliance_checks': security_results.compliance_checks | combine({'data_protection': data_protection_compliance})}) }}"
+
+    # Audit Trail Compliance
+    - name: Audit Trail Compliance
+      block:
+        - name: Check system logging
+          ansible.builtin.systemd:
+            name: rsyslog
+            state: started
+          register: rsyslog_status
+          failed_when: false
+
+        - name: Check log rotation
+          ansible.builtin.stat:
+            path: /etc/logrotate.d/atl-services
+          register: log_rotation_config
+
+        - name: Check audit log retention
+          ansible.builtin.shell: |
+            set -o pipefail
+            find /var/log -name "*.log" -mtime +30 | wc -l
+          register: old_logs
+          changed_when: false
+
+        - name: Check authentication logs
+          ansible.builtin.shell: |
+            set -o pipefail
+            ls -la /var/log/auth.log* 2>/dev/null | wc -l
+          register: auth_logs
+          changed_when: false
+
+        - name: Check application logs
+          ansible.builtin.shell: |
+            set -o pipefail
+            find /opt/*/logs /var/log/atl -name "*.log" 2>/dev/null | wc -l
+          register: app_logs
+          changed_when: false
+
+        - name: Evaluate audit trail compliance
+          ansible.builtin.set_fact:
+            audit_trail_compliance:
+              rsyslog_running: "{{ rsyslog_status.state == 'started' }}"
+              log_rotation_configured: "{{ log_rotation_config.stat.exists }}"
+              old_logs_count: "{{ old_logs.stdout | int }}"
+              auth_logs_count: "{{ auth_logs.stdout | int }}"
+              app_logs_count: "{{ app_logs.stdout | int }}"
+              status: >-
+                {{
+                  'COMPLIANT' if (
+                    rsyslog_status.state == 'started' and
+                    auth_logs.stdout | int > 0 and
+                    app_logs.stdout | int > 0
+                  ) else 'NON_COMPLIANT'
+                }}
+
+        - name: Update security results with audit trail
+          ansible.builtin.set_fact:
+            security_results: "{{ security_results | combine({'compliance_checks': security_results.compliance_checks | combine({'audit_trail': audit_trail_compliance})}) }}"
+
+    # System Security Checks
+    - name: System Security Checks
+      block:
+        - name: Check firewall status
+          ansible.builtin.shell: |
+            set -o pipefail
+            ufw status | head -1
+          register: firewall_status
+          changed_when: false
+
+        - name: Check fail2ban status
+          ansible.builtin.systemd:
+            name: fail2ban
+            state: started
+          register: fail2ban_status
+          failed_when: false
+
+        - name: Check automatic updates
+          ansible.builtin.systemd:
+            name: unattended-upgrades
+            state: started
+          register: auto_updates
+          failed_when: false
+
+        - name: Check system updates available
+          ansible.builtin.shell: |
+            set -o pipefail
+            apt list --upgradable 2>/dev/null | wc -l
+          register: updates_available
+          changed_when: false
+
+        - name: Check running services
+          ansible.builtin.shell: |
+            set -o pipefail
+            systemctl list-units --type=service --state=running | grep -E "(ssh|nginx|docker)" | wc -l
+          register: essential_services
+          changed_when: false
+
+        - name: Evaluate system security
+          ansible.builtin.set_fact:
+            system_security:
+              firewall_active: "{{ 'active' in firewall_status.stdout }}"
+              fail2ban_running: "{{ fail2ban_status.state == 'started' }}"
+              auto_updates_enabled: "{{ auto_updates.state == 'started' }}"
+              updates_available: "{{ updates_available.stdout | int }}"
+              essential_services_running: "{{ essential_services.stdout | int }}"
+              status: >-
+                {{
+                  'SECURE' if (
+                    'active' in firewall_status.stdout and
+                    fail2ban_status.state == 'started' and
+                    updates_available.stdout | int < 10
+                  ) else 'INSECURE'
+                }}
+
+        - name: Update security results with system security
+          ansible.builtin.set_fact:
+            security_results: "{{ security_results | combine({'security_checks': security_results.security_checks | combine({'system': system_security})}) }}"
+
+    # Network Security Checks
+    - name: Network Security Checks
+      block:
+        - name: Check open ports
+          ansible.builtin.shell: |
+            set -o pipefail
+            netstat -tuln | grep LISTEN | awk '{print $4}' | sed 's/.*://' | sort -n | uniq
+          register: open_ports
+          changed_when: false
+
+        - name: Check for unauthorized services
+          ansible.builtin.shell: |
+            set -o pipefail
+            netstat -tuln | grep LISTEN | grep -v -E ":(22|80|443|9090|9093|3000)$" | wc -l
+          register: unauthorized_services
+          changed_when: false
+
+        - name: Check SSL/TLS configuration
+          ansible.builtin.shell: |
+            set -o pipefail
+            openssl s_client -connect {{ inventory_hostname }}:443 -servername {{ inventory_hostname }} </dev/null 2>/dev/null | grep -E "Protocol|Cipher"
+          register: ssl_config
+          changed_when: false
+          failed_when: false
+
+        - name: Check for weak ciphers
+          ansible.builtin.shell: |
+            set -o pipefail
+            openssl s_client -connect {{ inventory_hostname }}:443 -cipher 'DES:RC4:MD5' </dev/null 2>/dev/null | grep -c "Cipher is"
+          register: weak_ciphers
+          changed_when: false
+          failed_when: false
+
+        - name: Evaluate network security
+          ansible.builtin.set_fact:
+            network_security:
+              open_ports: "{{ open_ports.stdout_lines | default([]) }}"
+              unauthorized_services: "{{ unauthorized_services.stdout | int }}"
+              ssl_config: "{{ ssl_config.stdout_lines | default([]) }}"
+              weak_ciphers: "{{ weak_ciphers.stdout | int }}"
+              status: >-
+                {{
+                  'SECURE' if (
+                    unauthorized_services.stdout | int == 0 and
+                    weak_ciphers.stdout | int == 0
+                  ) else 'INSECURE'
+                }}
+
+        - name: Update security results with network security
+          ansible.builtin.set_fact:
+            security_results: "{{ security_results | combine({'security_checks': security_results.security_checks | combine({'network': network_security})}) }}"
+
+    # Vulnerability Assessment
+    - name: Vulnerability Assessment
+      block:
+        - name: Check for known vulnerabilities in packages
+          ansible.builtin.shell: |
+            set -o pipefail
+            apt list --installed 2>/dev/null | grep -E "(openssl|nginx|openssh)" | head -5
+          register: critical_packages
+          changed_when: false
+
+        - name: Check Docker security
+          ansible.builtin.shell: |
+            docker info --format '{{ "{{" }}.SecurityOptions{{ "}}" }}' 2>/dev/null || echo "Docker not available"
+          register: docker_security
+          changed_when: false
+
+        - name: Check container vulnerabilities
+          ansible.builtin.shell: |
+            set -o pipefail
+            docker ps --format "table {{ "{{" }}.Names{{ "}}" }}\t{{ "{{" }}.Image{{ "}}" }}" 2>/dev/null | tail -n +2 | wc -l
+          register: running_containers
+          changed_when: false
+          failed_when: false
+
+        - name: Evaluate vulnerability status
+          ansible.builtin.set_fact:
+            vulnerability_assessment:
+              critical_packages: "{{ critical_packages.stdout_lines | default([]) }}"
+              docker_security: "{{ docker_security.stdout_lines | default([]) }}"
+              running_containers: "{{ running_containers.stdout | int }}"
+              status: "ASSESSED"
+
+        - name: Update security results with vulnerability assessment
+          ansible.builtin.set_fact:
+            security_results: "{{ security_results | combine({'security_checks': security_results.security_checks | combine({'vulnerabilities': vulnerability_assessment})}) }}"
+
+    # Overall Security Assessment
+    - name: Calculate overall security status
+      ansible.builtin.set_fact:
+        overall_security_status: |
+          {% set compliance_issues = [] %}
+          {% set security_issues = [] %}
+
+          {# Check compliance status #}
+          {% for check_name, check_result in security_results.compliance_checks.items() %}
+          {% if check_result.status == 'NON_COMPLIANT' %}
+          {% set _ = compliance_issues.append(check_name) %}
+          {% endif %}
+          {% endfor %}
+
+          {# Check security status #}
+          {% for check_name, check_result in security_results.security_checks.items() %}
+          {% if check_result.status == 'INSECURE' %}
+          {% set _ = security_issues.append(check_name) %}
+          {% endif %}
+          {% endfor %}
+
+          {{
+            'CRITICAL' if (compliance_issues | length > 0 or security_issues | length > 1) else (
+              'WARNING' if (security_issues | length > 0) else 'COMPLIANT'
+            )
+          }}
+
+    - name: Generate security recommendations
+      ansible.builtin.set_fact:
+        security_recommendations: |
+          {% set recs = [] %}
+          {% if security_results.compliance_checks.access_control.status == 'NON_COMPLIANT' %}
+          {% set _ = recs.append("Configure SSH key-only authentication and disable root login") %}
+          {% endif %}
+          {% if security_results.compliance_checks.data_protection.status == 'NON_COMPLIANT' %}
+          {% set _ = recs.append("Fix file permissions and encrypt sensitive data") %}
+          {% endif %}
+          {% if security_results.compliance_checks.audit_trail.status == 'NON_COMPLIANT' %}
+          {% set _ = recs.append("Configure comprehensive logging and log rotation") %}
+          {% endif %}
+          {% if security_results.security_checks.system.status == 'INSECURE' %}
+          {% set _ = recs.append("Enable firewall, fail2ban, and automatic security updates") %}
+          {% endif %}
+          {% if security_results.security_checks.network.status == 'INSECURE' %}
+          {% set _ = recs.append("Review open ports and strengthen SSL/TLS configuration") %}
+          {% endif %}
+          {% if security_results.security_checks.system.updates_available > 20 %}
+          {% set _ = recs.append("Apply available system updates immediately") %}
+          {% endif %}
+          {{ recs }}
+
+    - name: Update security results with assessment
+      ansible.builtin.set_fact:
+        security_results: "{{ security_results | combine({'overall_status': overall_security_status, 'recommendations': security_recommendations}) }}"
+
+  post_tasks:
+    - name: Save security compliance results
+      ansible.builtin.copy:
+        content: "{{ security_results | to_nice_json }}"
+        dest: "/var/log/atl/security-compliance-{{ inventory_hostname }}-{{ ansible_date_time.epoch }}.json"
+        mode: "0600" # Restrict access to security reports
+
+    - name: Log security compliance completion
+      ansible.builtin.lineinfile:
+        path: "/var/log/atl/security-compliance.log"
+        line: >-
+          {{ ansible_date_time.iso8601 }} - {{ inventory_hostname }} - Security Compliance: {{ overall_security_status }}
+          - Compliance Issues: {{ security_results.compliance_checks.values() | selectattr('status', 'equalto', 'NON_COMPLIANT') | list | length }}
+          - Security Issues: {{ security_results.security_checks.values() | selectattr('status', 'equalto', 'INSECURE') | list | length }}
+        create: true
+        mode: "0600"
+
+    - name: Display security compliance summary
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║              SECURITY COMPLIANCE SUMMARY                     ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🏥 Host: {{ inventory_hostname }}
+          📊 Overall Status: {{ overall_security_status }}
+          ⏰ Timestamp: {{ security_results.timestamp }}
+
+          📋 Compliance Checks:
+          {% for check_name, check_result in security_results.compliance_checks.items() %}
+          • {{ check_name | title }}: {{ check_result.status }}
+          {% endfor %}
+
+          🔒 Security Checks:
+          {% for check_name, check_result in security_results.security_checks.items() %}
+          • {{ check_name | title }}: {{ check_result.status }}
+          {% endfor %}
+
+          {% if overall_security_status == 'CRITICAL' %}
+          🚨 CRITICAL SECURITY ISSUES DETECTED!
+          {% elif overall_security_status == 'WARNING' %}
+          ⚠️  SECURITY WARNINGS DETECTED
+          {% else %}
+          ✅ SYSTEM IS COMPLIANT AND SECURE
+          {% endif %}
+
+          📝 Detailed Results: /var/log/atl/security-compliance-{{ inventory_hostname }}-{{ ansible_date_time.epoch }}.json
+
+          {% if security_recommendations | length > 0 %}
+          💡 Security Recommendations:
+          {% for rec in security_recommendations %}
+          • {{ rec }}
+          {% endfor %}
+          {% endif %}
+
+          🔍 Key Findings:
+          • User accounts: {{ security_results.compliance_checks.access_control.user_accounts | length }}
+          • Failed logins: {{ security_results.compliance_checks.access_control.failed_logins }}
+          • Open ports: {{ security_results.security_checks.network.open_ports | length }}
+          • Updates available: {{ security_results.security_checks.system.updates_available }}
+          • Firewall active: {{ 'Yes' if security_results.security_checks.system.firewall_active else 'No' }}
+          • Fail2ban running: {{ 'Yes' if security_results.security_checks.system.fail2ban_running else 'No' }}
+
+    - name: Log security compliance notification
+      ansible.builtin.lineinfile:
+        path: "/var/log/atl/security-notifications.log"
+        line: >-
+          {{ ansible_date_time.iso8601 }} - SECURITY COMPLIANCE NOTIFICATION - {{ inventory_hostname }} - {{ overall_security_status }}
+          - Compliance Issues: {{ security_results.compliance_checks.values() | selectattr('status', 'equalto', 'NON_COMPLIANT') | list | length }}
+          - Security Issues: {{ security_results.security_checks.values() | selectattr('status', 'equalto', 'INSECURE') | list | length }}
+        create: true
+        mode: "0644"
+      when:
+        - overall_security_status in ['CRITICAL', 'WARNING']
+        - send_security_alerts | default(true) | bool

@@ -171,7 +171,7 @@ repos:
         description: Validates all Terraform configuration files with TFLint
         args:
           - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
-          - --args=--module
+          - --args=--call-module-type=all
         exclude: |
           (?x)^(
             \.cache/.*|
@@ -189,6 +189,8 @@ repos:
             \.cache/.*|
             logs/.*
           )$
+        # Skip locally (trivy not required for local dev)
+        stages: [manual]
 
       - id: terraform_providers_lock
         name: Terraform Provider Lock

@@ -91,49 +91,7 @@ resource "hcloud_server" "shared" {
   })
 }
 
-# Output dynamic inventory for Ansible
-output "ansible_inventory" {
-  description = "Dynamically generated Ansible inventory from domains.yml"
-  value = {
-    all = {
-      children = merge(
-        # Domain groups
-        {
-          for name, config in local.enabled_domains : name => {
-            hosts = {
-              "${local.global.project_name}-${name}-${local.global.environment}" = {
-                ansible_host = hcloud_server.domains[name].ipv4_address
-                ansible_user = local.global.default_user
-                private_ip   = hcloud_server.domains[name].network[0].ip
-                domain       = config.domain
-                server_role  = name
-                services     = config.services
-                subdomains   = lookup(config, "subdomains", [])
-                monitoring   = lookup(config, "monitoring", {})
-                features     = lookup(config, "features", {})
-              }
-            }
-          }
-        },
-        # Shared infrastructure groups
-        {
-          for name, config in local.enabled_shared : name => {
-            hosts = {
-              "${local.global.project_name}-${name}-${local.global.environment}" = {
-                ansible_host = hcloud_server.shared[name].ipv4_address
-                ansible_user = local.global.default_user
-                private_ip   = hcloud_server.shared[name].network[0].ip
-                server_role  = name
-                services     = config.services
-                shared       = true
-              }
-            }
-          }
-        }
-      )
-    }
-  }
-}
+
 
 # Generate DNS records dynamically
 resource "cloudflare_dns_record" "domain_main" {

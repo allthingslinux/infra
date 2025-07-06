@@ -1,0 +1,102 @@
+---
+# Daily Operations Playbook
+# Combines common maintenance tasks into a single workflow
+
+- name: "ATL Daily Operations"
+  hosts: all
+  become: true
+  gather_facts: true
+  serial: 1 # Run one host at a time for safety
+
+  pre_tasks:
+    - name: Display daily operations banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                    ATL Daily Operations                      ║
+          ║              Routine Maintenance & Health Checks             ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+  tasks:
+    # Quick Health Check
+    - name: Check system resources
+      ansible.builtin.shell: |
+        set -o pipefail
+        echo "CPU: $(top -bn1 | grep 'Cpu(s)' | awk '{print $2}' | sed 's/%us,//')%"
+        echo "Memory: $(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}')%"
+        echo "Disk: $(df -h / | tail -1 | awk '{print $5}')"
+        echo "Load: $(uptime | awk -F'load average:' '{print $2}' | awk '{print $1}' | sed 's/,//')"
+      register: system_resources
+      changed_when: false
+
+    - name: Check service status
+      ansible.builtin.shell: |
+        if [ -d "/opt/{{ inventory_hostname }}" ]; then
+          cd /opt/{{ inventory_hostname }}
+          docker-compose ps 2>/dev/null || echo "No services running"
+        else
+          echo "No service directory found"
+        fi
+      register: service_status
+      changed_when: false
+
+    - name: Test web endpoint
+      ansible.builtin.uri:
+        url: "https://{{ inventory_hostname }}"
+        method: GET
+        timeout: 10
+        follow_redirects: safe
+      register: web_check
+      failed_when: false
+
+    # Light Cleanup
+    - name: Clean temporary files
+      ansible.builtin.shell: |
+        find /tmp -type f -mtime +1 -delete 2>/dev/null || true
+        find /var/tmp -type f -mtime +7 -delete 2>/dev/null || true
+        echo "Cleaned temporary files"
+      register: temp_cleanup
+      changed_when: false
+
+    - name: Clean Docker system
+      ansible.builtin.shell: |
+        docker system prune -f --volumes 2>/dev/null || echo "Docker cleanup skipped"
+      register: docker_cleanup
+      changed_when: false
+
+    # Update Check
+    - name: Check system updates
+      ansible.builtin.shell: |
+        set -o pipefail
+        apt list --upgradable 2>/dev/null | wc -l
+      register: system_updates
+      changed_when: false
+
+  post_tasks:
+    - name: Display daily operations summary
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                 DAILY OPERATIONS SUMMARY                     ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🏥 Host: {{ inventory_hostname }}
+          ⏰ Timestamp: {{ ansible_date_time.iso8601 }}
+
+          🔍 System Resources:
+          {{ system_resources.stdout }}
+
+          🌐 Web Status: {{ web_check.status | default('DOWN') }} ({{ web_check.elapsed | default(0) }}s)
+
+          📦 Updates Available: {{ system_updates.stdout }} system updates
+
+          🧹 Cleanup Actions:
+          {{ temp_cleanup.stdout }}
+          {{ docker_cleanup.stdout }}
+
+    - name: Log daily operations completion
+      ansible.builtin.lineinfile:
+        path: "/var/log/atl/daily-ops.log"
+        line: "{{ ansible_date_time.iso8601 }} - {{ inventory_hostname }} - Daily Ops Complete - Web: {{ web_check.status | default('DOWN') }} - Updates: {{ system_updates.stdout }}"
+        create: true
+        mode: "0644"

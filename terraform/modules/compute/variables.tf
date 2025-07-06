@@ -31,10 +31,7 @@ variable "network_id" {
   type        = string
 }
 
-variable "subnet_id" {
-  description = "ID of the subnet to attach servers to"
-  type        = string
-}
+
 
 variable "ssh_key_ids" {
   description = "List of SSH key IDs to attach to servers"
@@ -58,11 +55,7 @@ variable "enable_backups" {
   default     = true
 }
 
-variable "enable_monitoring" {
-  description = "Enable monitoring for servers"
-  type        = bool
-  default     = true
-}
+
 
 variable "tags" {
   description = "Tags to apply to all resources"

@@ -30,8 +30,9 @@
 
 - name: subtasks | locale | Parse current LANGUAGE from locale configuration
   ansible.builtin.set_fact:
-    current_locale_language: "{{ locale_status.stdout | regex_search('LANGUAGE=([^\n\\s]+)', '\\1') | first | default(current_locale_lang)
-      }}"
+    current_locale_language: >-
+      {{ locale_status.stdout | regex_search('LANGUAGE=([^\n\\s]+)', '\\1') |
+         first | default(current_locale_lang) }}
 
 - name: subtasks | locale | Configure locale using localectl
   ansible.builtin.command: >

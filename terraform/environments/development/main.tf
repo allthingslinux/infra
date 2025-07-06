@@ -100,8 +100,8 @@ module "compute" {
   name        = local.project
   environment = local.environment
 
-  network_id  = module.network.network_id
-  subnet_id   = module.network.subnet_ids["web"]
+  network_id = module.network.network_id
+
   ssh_key_ids = [module.network.ssh_key_id]
 
   # Development uses smaller, cheaper instances

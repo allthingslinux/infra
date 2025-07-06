@@ -64,14 +64,19 @@ mock_modules:
   - community.general.locale_gen
   - community.general.timezone
   - community.docker.docker_compose
+  - community.docker.docker_prune
   - community.postgresql.postgresql_db
   - community.mysql.mysql_db
+  - mail
 
 # Mock roles for testing purposes
 mock_roles:
   - atl.common
   - atl.security
   - atl.monitoring
+  - system
+  - docker
+  - tux
 
 # Define required Ansible variables to satisfy syntax check
 extra_vars:

@@ -15,7 +15,7 @@ from pathlib import Path
 def load_domains_config():
     """Load configuration from domains.yml"""
     script_dir = Path(__file__).parent
-    domains_file = script_dir.parent / "domains.yml"
+    domains_file = script_dir.parent.parent / "configs" / "domains.yml"
 
     if not domains_file.exists():
         print(f"ERROR: domains.yml not found at {domains_file}", file=sys.stderr)

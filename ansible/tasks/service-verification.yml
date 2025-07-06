@@ -9,8 +9,7 @@
   register: docker_status
 
 - name: service-verification | Get running containers
-  ansible.builtin.command: docker ps --format "table {{ '{{' }}.Names{{ '}}' }}\t{{ '{{' }}.Status{{ '}}' }}\t{{ '{{'
-    }}.Ports{{ '}}' }}"
+  ansible.builtin.command: docker ps --format "table {{ '{{' }}.Names{{ '}}' }}\t{{ '{{' }}.Status{{ '}}' }}\t{{ '{{' }}.Ports{{ '}}' }}"
   register: running_containers
   changed_when: false
 
@@ -21,11 +20,16 @@
     status_code: "{{ item.expected_status | default([200, 401, 403]) }}"
     timeout: 30
   loop:
-    - { url: "http://localhost:81/api/nginx/proxy-hosts", expected_status: [401] } # NPM (needs auth)
-    - { url: "http://localhost:9000/api/v3/root/config/", expected_status: [401] } # Authentik (needs auth)
-    - { url: "http://localhost:3000/api/health", expected_status: [200] } # Grafana
-    - { url: "http://localhost:9090/api/v1/status/config", expected_status: [200] } # Prometheus
-    - { url: "http://localhost:9100/metrics", expected_status: [200] } # Node Exporter
+    - url: "http://localhost:81/api/nginx/proxy-hosts"
+      expected_status: [401] # NPM (needs auth)
+    - url: "http://localhost:9000/api/v3/root/config/"
+      expected_status: [401] # Authentik (needs auth)
+    - url: "http://localhost:3000/api/health"
+      expected_status: [200] # Grafana
+    - url: "http://localhost:9090/api/v1/status/config"
+      expected_status: [200] # Prometheus
+    - url: "http://localhost:9100/metrics"
+      expected_status: [200] # Node Exporter
   register: health_checks
   failed_when: false
   when: inventory_hostname in groups['atl_services']
@@ -37,7 +41,8 @@
     status_code: "{{ item.expected_status | default([200, 302, 401]) }}"
     timeout: 30
   loop:
-    - { port: "8080", path: "/status.php" } # Nextcloud
+    - { port: "8080", path: "/status.php" } # Nextcgit push
+
     - { port: "3000", path: "/api/v1/version" } # Gitea
     - { port: "8081", path: "/api/alive" } # Vaultwarden
     - { port: "3001", path: "/api/status-page/heartbeat/list" } # Uptime Kuma
@@ -87,7 +92,7 @@
 
 - name: service-verification | Generate service verification report
   ansible.builtin.debug:
-    msg: |
+    msg: >-
       ╔═══════════════════════════════════════════════════════════════╗
       ║                  Service Verification Report                  ║
       ╚═══════════════════════════════════════════════════════════════╝

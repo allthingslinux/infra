@@ -1,0 +1,469 @@
+---
+# Backup Verification Playbook
+# Validates backup integrity and tests restore procedures
+
+- name: "ATL Backup Verification"
+  hosts: all
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display backup verification banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                  ATL Backup Verification                     ║
+          ║              Backup Integrity & Restore Testing              ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🔍 Backup Discovery: Locate all backup files and locations
+          ✅ Integrity Check: Verify backup file integrity and checksums
+          📊 Coverage Analysis: Ensure all critical data is backed up
+          🔄 Restore Testing: Test restore procedures (dry-run)
+          📈 Reporting: Generate comprehensive backup status report
+
+    - name: Initialize backup verification results
+      ansible.builtin.set_fact:
+        backup_results:
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+          host: "{{ inventory_hostname }}"
+          backups_found: []
+          integrity_checks: {}
+          restore_tests: {}
+          coverage_analysis: {}
+          overall_status: "UNKNOWN"
+          recommendations: []
+
+    - name: Load domain configuration
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../configs/domains.yml"
+        name: domains_config
+      delegate_to: localhost
+      run_once: true
+
+  tasks:
+    # Backup Discovery
+    - name: Backup Discovery
+      block:
+        - name: Find local backup directories
+          ansible.builtin.find:
+            paths:
+              - "/opt/backups"
+              - "/var/backups"
+              - "/backup"
+              - "/opt/{{ inventory_hostname }}/backups"
+            file_type: directory
+            recurse: false
+          register: backup_directories
+
+        - name: Find backup files
+          ansible.builtin.find:
+            paths: "{{ backup_directories.files | map(attribute='path') | list }}"
+            patterns:
+              - "*.tar.gz"
+              - "*.sql"
+              - "*.sql.gz"
+              - "*.dump"
+              - "*.backup"
+              - "*.zip"
+            age: "-30d" # Files newer than 30 days
+            recurse: true
+          register: backup_files
+          when: backup_directories.files | length > 0
+
+        - name: Check for automated backup scripts
+          ansible.builtin.find:
+            paths:
+              - "/usr/local/bin"
+              - "/opt/scripts"
+              - "/etc/cron.d"
+              - "/etc/cron.daily"
+              - "/etc/cron.weekly"
+            patterns:
+              - "*backup*"
+              - "*dump*"
+            file_type: file
+          register: backup_scripts
+
+        - name: Update backup discovery results
+          ansible.builtin.set_fact:
+            backup_results: "{{ backup_results | combine({'backups_found': (backup_files.files | default([]) | map(attribute='path') | list) + (backup_scripts.files | default([]) | map(attribute='path') | list)}) }}"
+
+    # Backup Integrity Checks
+    - name: Backup Integrity Checks
+      block:
+        - name: Check backup file integrity
+          ansible.builtin.shell: |
+            if [[ "{{ item }}" == *.tar.gz ]]; then
+              tar -tzf "{{ item }}" > /dev/null 2>&1 && echo "VALID" || echo "CORRUPT"
+            elif [[ "{{ item }}" == *.sql.gz ]]; then
+              gunzip -t "{{ item }}" && echo "VALID" || echo "CORRUPT"
+            elif [[ "{{ item }}" == *.zip ]]; then
+              unzip -t "{{ item }}" > /dev/null 2>&1 && echo "VALID" || echo "CORRUPT"
+            else
+              file "{{ item }}" > /dev/null 2>&1 && echo "VALID" || echo "UNKNOWN"
+            fi
+          register: integrity_check
+          loop: "{{ backup_files.files | default([]) | map(attribute='path') | list }}"
+          changed_when: false
+          failed_when: false
+
+        - name: Generate checksums for backup files
+          ansible.builtin.shell: |
+            set -o pipefail
+            sha256sum "{{ item }}" | awk '{print $1}'
+          register: backup_checksums
+          loop: "{{ backup_files.files | default([]) | map(attribute='path') | list }}"
+          changed_when: false
+          failed_when: false
+
+        - name: Check for existing checksum files
+          ansible.builtin.stat:
+            path: "{{ item }}.sha256"
+          register: existing_checksums
+          loop: "{{ backup_files.files | default([]) | map(attribute='path') | list }}"
+
+        - name: Verify checksums against existing files
+          ansible.builtin.shell: |
+            set -o pipefail
+            stored_checksum=$(cat "{{ item.item }}.sha256" 2>/dev/null || echo "MISSING")
+            current_checksum=$(sha256sum "{{ item.item }}" | awk '{print $1}')
+            if [[ "$stored_checksum" == "$current_checksum" ]]; then
+              echo "MATCH"
+            elif [[ "$stored_checksum" == "MISSING" ]]; then
+              echo "NO_STORED_CHECKSUM"
+            else
+              echo "MISMATCH"
+            fi
+          register: checksum_verification
+          loop: "{{ existing_checksums.results }}"
+          changed_when: false
+          failed_when: false
+
+        - name: Compile integrity check results
+          ansible.builtin.set_fact:
+            integrity_results: |
+              {% set results = {} %}
+              {% for i in range(backup_files.files | default([]) | length) %}
+              {% set file_path = backup_files.files[i].path %}
+              {% set _ = results.update({
+                file_path: {
+                  'integrity': integrity_check.results[i].stdout | default('UNKNOWN'),
+                  'checksum': backup_checksums.results[i].stdout | default('UNKNOWN'),
+                  'checksum_verification': checksum_verification.results[i].stdout | default('UNKNOWN'),
+                  'size': backup_files.files[i].size,
+                  'age_days': ((ansible_date_time.epoch | int) - (backup_files.files[i].mtime)) // 86400
+                }
+              }) %}
+              {% endfor %}
+              {{ results }}
+
+        - name: Update backup results with integrity checks
+          ansible.builtin.set_fact:
+            backup_results: "{{ backup_results | combine({'integrity_checks': integrity_results}) }}"
+
+    # Database Backup Verification
+    - name: Database Backup Verification
+      when: inventory_hostname in ['atl.services', 'atl.tools'] # Hosts likely to have databases
+
+      # Configuration Backup Verification
+      block:
+        - name: Find database backup files
+          ansible.builtin.find:
+            paths: "{{ backup_directories.files | map(attribute='path') | list }}"
+            patterns:
+              - "*.sql"
+              - "*.sql.gz"
+              - "*.dump"
+            age: "-7d" # Files newer than 7 days
+            recurse: true
+          register: db_backup_files
+          when: backup_directories.files | length > 0
+
+        - name: Test database backup restoration (dry-run)
+          ansible.builtin.shell: |
+            set -o pipefail
+            if [[ "{{ item }}" == *.sql.gz ]]; then
+              gunzip -c "{{ item }}" | head -50 | grep -E "(CREATE|INSERT|UPDATE)" | wc -l
+            elif [[ "{{ item }}" == *.sql ]]; then
+              head -50 "{{ item }}" | grep -E "(CREATE|INSERT|UPDATE)" | wc -l
+            else
+              echo "0"
+            fi
+          register: db_backup_test
+          loop: "{{ db_backup_files.files | default([]) | map(attribute='path') | list }}"
+          changed_when: false
+          failed_when: false
+
+        - name: Analyze database backup content
+          ansible.builtin.shell: |
+            set -o pipefail
+            if [[ "{{ item }}" == *.sql.gz ]]; then
+              gunzip -c "{{ item }}" | grep -E "^(CREATE TABLE|INSERT INTO)" | head -10
+            elif [[ "{{ item }}" == *.sql ]]; then
+              grep -E "^(CREATE TABLE|INSERT INTO)" "{{ item }}" | head -10
+            else
+              echo "No SQL content detected"
+            fi
+          register: db_content_analysis
+          loop: "{{ db_backup_files.files | default([]) | map(attribute='path') | list }}"
+          changed_when: false
+          failed_when: false
+
+        - name: Compile database backup results
+          ansible.builtin.set_fact:
+            db_backup_results: |
+              {% set results = {} %}
+              {% for i in range(db_backup_files.files | default([]) | length) %}
+              {% set file_path = db_backup_files.files[i].path %}
+              {% set _ = results.update({
+                file_path: {
+                  'sql_statements': db_backup_test.results[i].stdout | default('0') | int,
+                  'content_preview': db_content_analysis.results[i].stdout_lines | default([]),
+                  'size': db_backup_files.files[i].size,
+                  'age_days': ((ansible_date_time.epoch | int) - (db_backup_files.files[i].mtime)) // 86400,
+                  'status': 'VALID' if (db_backup_test.results[i].stdout | default('0') | int) > 0 else 'SUSPECT'
+                }
+              }) %}
+              {% endfor %}
+              {{ results }}
+
+        - name: Update backup results with database checks
+          ansible.builtin.set_fact:
+            backup_results: "{{ backup_results | combine({'restore_tests': db_backup_results}) }}"
+
+    - name: Configuration Backup Verification
+      block:
+        - name: Check for configuration backups
+          ansible.builtin.stat:
+            path: "{{ item }}"
+          register: config_backup_check
+          loop:
+            - "/opt/{{ inventory_hostname }}/docker-compose.yml"
+            - "/opt/{{ inventory_hostname }}/.env"
+            - "/etc/nginx/sites-available/{{ inventory_hostname }}"
+            - "/opt/backups/configs"
+            - "/var/backups/configs"
+
+        - name: Verify critical configuration files exist
+          ansible.builtin.find:
+            paths:
+              - "/opt/{{ inventory_hostname }}"
+              - "/etc/nginx/sites-available"
+              - "/etc/nginx/sites-enabled"
+            patterns:
+              - "docker-compose.yml"
+              - "*.env"
+              - "{{ inventory_hostname }}"
+            file_type: file
+          register: critical_configs
+
+        - name: Check configuration backup age
+          ansible.builtin.stat:
+            path: "{{ item.path }}"
+          register: config_file_stats
+          loop: "{{ critical_configs.files }}"
+
+        - name: Analyze configuration backup coverage
+          ansible.builtin.set_fact:
+            config_coverage: |
+              {% set coverage = {} %}
+              {% for file in critical_configs.files %}
+              {% set backup_exists = false %}
+              {% for backup_dir in backup_directories.files %}
+              {% if (backup_dir.path + '/' + file.path | basename) is file %}
+              {% set backup_exists = true %}
+              {% endif %}
+              {% endfor %}
+              {% set _ = coverage.update({
+                file.path: {
+                  'exists': true,
+                  'backup_exists': backup_exists,
+                  'age_days': ((ansible_date_time.epoch | int) - file.mtime) // 86400,
+                  'size': file.size
+                }
+              }) %}
+              {% endfor %}
+              {{ coverage }}
+
+        - name: Update backup results with configuration coverage
+          ansible.builtin.set_fact:
+            backup_results: "{{ backup_results | combine({'coverage_analysis': config_coverage}) }}"
+
+    # Backup Schedule Verification
+    - name: Backup Schedule Verification
+      block:
+        - name: Check cron jobs for backup tasks
+          ansible.builtin.shell: |
+            set -o pipefail
+            crontab -l 2>/dev/null | grep -i backup || echo "No backup cron jobs found"
+          register: user_cron_backups
+          changed_when: false
+
+        - name: Check system cron jobs for backup tasks
+          ansible.builtin.shell: |
+            set -o pipefail
+            find /etc/cron.* -name "*backup*" -o -name "*dump*" | head -10
+          register: system_cron_backups
+          changed_when: false
+
+        - name: Check systemd timers for backup tasks
+          ansible.builtin.systemd:
+            name: "backup*"
+            enabled: true
+          register: systemd_backup_timers
+          failed_when: false
+
+        - name: Analyze backup schedule
+          ansible.builtin.set_fact:
+            backup_schedule: |
+              {
+                'user_cron': "{{ user_cron_backups.stdout_lines | default([]) }}",
+                'system_cron': "{{ system_cron_backups.stdout_lines | default([]) }}",
+                'systemd_timers': "{{ systemd_backup_timers.enabled | default(false) }}",
+                'scheduled_backups_found': {{ (user_cron_backups.stdout_lines | default([]) | length > 0) or (system_cron_backups.stdout_lines | default([]) | length > 0) or (systemd_backup_timers.enabled | default(false)) }}
+              }
+
+    # Overall Assessment
+    - name: Calculate overall backup status
+      ansible.builtin.set_fact:
+        overall_backup_status: |
+          {% set critical_issues = [] %}
+          {% set warnings = [] %}
+
+          {# Check if backups exist #}
+          {% if backup_results.backups_found | length == 0 %}
+          {% set _ = critical_issues.append("No backup files found") %}
+          {% endif %}
+
+          {# Check backup integrity #}
+          {% for file, result in backup_results.integrity_checks.items() %}
+          {% if result.integrity == "CORRUPT" %}
+          {% set _ = critical_issues.append("Corrupt backup file: " + file) %}
+          {% elif result.checksum_verification == "MISMATCH" %}
+          {% set _ = critical_issues.append("Checksum mismatch: " + file) %}
+          {% elif result.age_days > 7 %}
+          {% set _ = warnings.append("Old backup file (>" + result.age_days|string + " days): " + file) %}
+          {% endif %}
+          {% endfor %}
+
+          {# Check database backups #}
+          {% for file, result in backup_results.restore_tests.items() %}
+          {% if result.status == "SUSPECT" %}
+          {% set _ = warnings.append("Suspect database backup: " + file) %}
+          {% endif %}
+          {% endfor %}
+
+          {# Check backup schedule #}
+          {% if not backup_schedule.scheduled_backups_found %}
+          {% set _ = warnings.append("No scheduled backup jobs found") %}
+          {% endif %}
+
+          {{
+            'CRITICAL' if critical_issues | length > 0 else (
+              'WARNING' if warnings | length > 0 else 'HEALTHY'
+            )
+          }}
+
+    - name: Generate backup recommendations
+      ansible.builtin.set_fact:
+        backup_recommendations: |
+          {% set recs = [] %}
+          {% if backup_results.backups_found | length == 0 %}
+          {% set _ = recs.append("Set up automated backup system for critical data") %}
+          {% endif %}
+          {% if not backup_schedule.scheduled_backups_found %}
+          {% set _ = recs.append("Configure scheduled backup jobs (cron or systemd timers)") %}
+          {% endif %}
+          {% for file, result in backup_results.integrity_checks.items() %}
+          {% if result.checksum_verification == "NO_STORED_CHECKSUM" %}
+          {% set _ = recs.append("Create checksum files for backup verification: " + file) %}
+          {% endif %}
+          {% endfor %}
+          {% if backup_results.restore_tests | length == 0 %}
+          {% set _ = recs.append("Implement regular restore testing procedures") %}
+          {% endif %}
+          {% if backup_results.coverage_analysis | length == 0 %}
+          {% set _ = recs.append("Ensure all critical configuration files are backed up") %}
+          {% endif %}
+          {{ recs }}
+
+    - name: Update backup results with assessment
+      ansible.builtin.set_fact:
+        backup_results: "{{ backup_results | combine({'overall_status': overall_backup_status, 'recommendations': backup_recommendations}) }}"
+
+  post_tasks:
+    - name: Save backup verification results
+      ansible.builtin.copy:
+        content: "{{ backup_results | to_nice_json }}"
+        dest: "/var/log/atl/backup-verification-{{ inventory_hostname }}-{{ ansible_date_time.epoch }}.json"
+        mode: "0644"
+
+    - name: Log backup verification completion
+      ansible.builtin.lineinfile:
+        path: "/var/log/atl/backup-verification.log"
+        line: >-
+          {{ ansible_date_time.iso8601 }} - {{ inventory_hostname }} - Backup Verification: {{ overall_backup_status }}
+          - Backups Found: {{ backup_results.backups_found | length }}
+          - Issues: {{ backup_results.integrity_checks.values() | selectattr('integrity', 'equalto', 'CORRUPT') | list | length }}
+        create: true
+        mode: "0644"
+
+    - name: Display backup verification summary
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                BACKUP VERIFICATION SUMMARY                   ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🏥 Host: {{ inventory_hostname }}
+          📊 Overall Status: {{ overall_backup_status }}
+          ⏰ Timestamp: {{ backup_results.timestamp }}
+
+          📋 Backup Discovery:
+          • Backup files found: {{ backup_results.backups_found | length }}
+          • Backup directories: {{ backup_directories.files | length }}
+          • Backup scripts: {{ backup_scripts.files | length }}
+
+          ✅ Integrity Checks:
+          {% for file, result in backup_results.integrity_checks.items() %}
+          • {{ file | basename }}: {{ result.integrity }} ({{ result.age_days }} days old)
+          {% endfor %}
+
+          🔄 Restore Tests:
+          {% for file, result in backup_results.restore_tests.items() %}
+          • {{ file | basename }}: {{ result.status }} ({{ result.sql_statements }} SQL statements)
+          {% endfor %}
+
+          📅 Backup Schedule:
+          • Scheduled backups: {{ 'Yes' if backup_schedule.scheduled_backups_found else 'No' }}
+          • User cron jobs: {{ backup_schedule.user_cron | length }}
+          • System cron jobs: {{ backup_schedule.system_cron | length }}
+          • Systemd timers: {{ backup_schedule.systemd_timers | length }}
+
+          {% if overall_backup_status == 'CRITICAL' %}
+          🚨 CRITICAL BACKUP ISSUES DETECTED!
+          {% elif overall_backup_status == 'WARNING' %}
+          ⚠️  BACKUP WARNINGS DETECTED
+          {% else %}
+          ✅ BACKUP SYSTEM HEALTHY
+          {% endif %}
+
+          📝 Detailed Results: /var/log/atl/backup-verification-{{ inventory_hostname }}-{{ ansible_date_time.epoch }}.json
+
+          {% if backup_recommendations | length > 0 %}
+          💡 Recommendations:
+          {% for rec in backup_recommendations %}
+          • {{ rec }}
+          {% endfor %}
+          {% endif %}
+
+    - name: Log backup verification notification (if critical)
+      ansible.builtin.lineinfile:
+        path: "/var/log/atl/backup-notifications.log"
+        line: "{{ ansible_date_time.iso8601 }} - BACKUP VERIFICATION NOTIFICATION - {{ inventory_hostname }} - {{ overall_backup_status }} - Backups Found: {{ backup_results.backups_found | length }} - Integrity Checks: {{ backup_results.integrity_checks | length }}"
+        create: true
+        mode: "0644"
+      when:
+        - overall_backup_status in ['CRITICAL', 'WARNING']
+        - send_backup_alerts | default(true) | bool

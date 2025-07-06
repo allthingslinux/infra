@@ -72,9 +72,11 @@ common_env_vars:
 # Dynamically generate proxy rules for reverse proxy configuration
 all_proxy_rules: >-
   {{
-    enabled_domains | dict2items | map(attribute='value') | map('combine', [{'domain': item.domain, 'host': item.domain, 'port':
-  item.port | default(80)}]) | list
+    enabled_domains | dict2items | map(attribute='value') |
+    map('combine', [{'domain': item.domain, 'host': item.domain,
+                     'port': item.port | default(80)}]) | list
   }}
+
 # You may want to further customize this Jinja2 expression to match your actual domain/port mapping logic.
 
 # Example: To add custom ports or additional domains, extend all_proxy_rules like this:

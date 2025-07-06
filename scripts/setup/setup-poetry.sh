@@ -31,7 +31,8 @@ error() {
 # Check if Poetry is installed
 check_poetry() {
     if command -v poetry &>/dev/null; then
-        local poetry_version=$(poetry --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+        local poetry_version
+        poetry_version=$(poetry --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
         log "Poetry is already installed (version: $poetry_version)"
         return 0
     else
@@ -56,8 +57,6 @@ install_poetry() {
             success "Poetry installed successfully!"
         else
             error "Poetry installation failed. Please add ~/.local/bin to your PATH."
-            echo "Add this to your shell profile (.bashrc, .zshrc, etc.):"
-            echo 'export PATH="$HOME/.local/bin:$PATH"'
             exit 1
         fi
     else
@@ -118,12 +117,14 @@ verify_installation() {
     log "Verifying installation..."
 
     # Check Python version
-    local python_version=$(poetry run python --version)
+    local python_version
+    python_version=$(poetry run python --version)
     log "Python version: $python_version"
 
     # Check Ansible version
     if poetry run ansible --version &>/dev/null; then
-        local ansible_version=$(poetry run ansible --version | head -n1)
+        local ansible_version
+        ansible_version=$(poetry run ansible --version | head -n1)
         log "Ansible version: $ansible_version"
     else
         warning "Ansible not found in virtual environment"
@@ -131,7 +132,8 @@ verify_installation() {
 
     # Check ansible-lint
     if poetry run ansible-lint --version &>/dev/null; then
-        local lint_version=$(poetry run ansible-lint --version)
+        local lint_version
+        lint_version=$(poetry run ansible-lint --version)
         log "ansible-lint version: $lint_version"
     else
         warning "ansible-lint not found in virtual environment"

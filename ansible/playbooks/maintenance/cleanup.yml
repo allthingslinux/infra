@@ -1,0 +1,235 @@
+---
+# System Cleanup Playbook
+# Manages disk space, logs, and Docker resources across all ATL servers
+
+- name: "System Cleanup and Maintenance"
+  hosts: all
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display cleanup banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║                    System Cleanup Manager                    ║
+          ║              Disk Space & Resource Optimization              ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          🧹 Cleaning up: {{ inventory_hostname }}
+          💾 Disk space optimization
+          🗂️  Log rotation and archival
+          🐳 Docker resource cleanup
+
+    - name: Check disk space before cleanup
+      ansible.builtin.shell: |
+        set -o pipefail
+        df -h / | tail -1 | awk '{print $4}'
+      register: disk_space_before
+      changed_when: false
+
+    - name: Display current disk usage
+      ansible.builtin.debug:
+        msg: "Available disk space before cleanup: {{ disk_space_before.stdout }}"
+
+  tasks:
+    # Package cleanup
+    - name: Clean package cache (Debian/Ubuntu)
+      ansible.builtin.apt:
+        autoclean: true
+        autoremove: true
+      when: ansible_os_family == "Debian"
+
+    - name: Clean package cache (RedHat/CentOS)
+      ansible.builtin.dnf:
+        autoremove: true
+      when: ansible_os_family == "RedHat"
+
+    # Log cleanup and rotation
+    - name: Rotate system logs
+      ansible.builtin.command: logrotate -f /etc/logrotate.conf
+      changed_when: false
+
+    - name: Clean old log files (older than 30 days)
+      ansible.builtin.find:
+        paths:
+          - /var/log
+          - /var/log/atl
+        patterns:
+          - "*.log.*"
+          - "*.gz"
+          - "*.old"
+        age: "30d"
+        recurse: true
+      register: old_logs
+
+    - name: Remove old log files
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_logs.files }}"
+      when: old_logs.files | length > 0
+
+    - name: Clean journal logs (keep last 7 days)
+      ansible.builtin.command: journalctl --vacuum-time=7d
+      changed_when: false
+
+    # Docker cleanup
+    - name: Check if Docker is installed
+      ansible.builtin.command: which docker
+      register: docker_installed
+      failed_when: false
+      changed_when: false
+
+    - name: Docker cleanup tasks
+      when: docker_installed.rc == 0
+
+      # Temporary file cleanup
+      block:
+        - name: Remove unused Docker images
+          community.docker.docker_prune:
+            images: true
+            images_filters:
+              dangling: false
+          register: docker_image_cleanup
+
+        - name: Remove unused Docker volumes
+          community.docker.docker_prune:
+            volumes: true
+          register: docker_volume_cleanup
+
+        - name: Remove unused Docker networks
+          community.docker.docker_prune:
+            networks: true
+          register: docker_network_cleanup
+
+        - name: Remove Docker build cache
+          ansible.builtin.command: docker system prune -f --volumes
+          register: docker_system_cleanup
+          changed_when: "'Total reclaimed space' in docker_system_cleanup.stdout"
+
+        - name: Display Docker cleanup results
+          ansible.builtin.debug:
+            msg: |
+              🐳 Docker Cleanup Results:
+              Images: {{ docker_image_cleanup.images_deleted | default([]) | length }} removed
+              Volumes: {{ docker_volume_cleanup.volumes_deleted | default([]) | length }} removed
+              Networks: {{ docker_network_cleanup.networks_deleted | default([]) | length }} removed
+              System: {{ docker_system_cleanup.stdout.split('Total reclaimed space: ')[1] if 'Total reclaimed space' in docker_system_cleanup.stdout else 'No space reclaimed' }}
+
+    - name: Clean temporary files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/*
+        - /var/tmp/*
+      failed_when: false
+
+    - name: Clean user cache directories
+      ansible.builtin.find:
+        paths: /home
+        patterns: ".cache"
+        file_type: directory
+        recurse: true
+        depth: 2
+      register: user_caches
+
+    - name: Remove old cache files (older than 14 days)
+      ansible.builtin.find:
+        paths: "{{ item.path }}"
+        age: "14d"
+        recurse: true
+      register: old_cache_files
+      loop: "{{ user_caches.files }}"
+
+    - name: Remove old cache files
+      ansible.builtin.file:
+        path: "{{ item.1.path }}"
+        state: absent
+      loop: "{{ old_cache_files.results | subelements('files', skip_missing=True) }}"
+      failed_when: false
+
+    # Service-specific cleanup
+    - name: Clean ATL service directories
+      ansible.builtin.find:
+        paths: "/opt/{{ inventory_hostname }}/logs"
+        patterns: "*.log.*"
+        age: "14d"
+      register: service_logs
+      when: ansible_hostname in groups.keys()
+
+    - name: Remove old service logs
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ service_logs.files | default([]) }}"
+
+    # Backup cleanup
+    - name: Find old backup files
+      ansible.builtin.find:
+        paths:
+          - /opt/atl/backups
+          - /var/backups
+        patterns: "*.backup*"
+        age: "30d"
+        recurse: true
+      register: old_backups
+
+    - name: Remove old backup files (keep recent 30 days)
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_backups.files }}"
+      when: old_backups.files | length > 10 # Keep at least 10 backups
+
+    # System optimization
+    - name: Update locate database
+      ansible.builtin.command: updatedb
+      changed_when: false
+      failed_when: false
+
+    - name: Optimize package database
+      ansible.builtin.command: apt-file update
+      when: ansible_os_family == "Debian"
+      changed_when: false
+      failed_when: false
+
+  post_tasks:
+    - name: Check disk space after cleanup
+      ansible.builtin.shell: |
+        set -o pipefail
+        df -h / | tail -1 | awk '{print $4}'
+      register: disk_space_after
+      changed_when: false
+
+    - name: Calculate space freed
+      ansible.builtin.set_fact:
+        space_before: "{{ disk_space_before.stdout }}"
+        space_after: "{{ disk_space_after.stdout }}"
+
+    - name: Log cleanup completion
+      ansible.builtin.lineinfile:
+        path: "/var/log/atl/system-cleanup.log"
+        line: "{{ ansible_date_time.iso8601 }} - {{ inventory_hostname }} - Cleanup completed. Space: {{ space_before }} -> {{ space_after }}"
+        create: true
+        mode: "0644"
+
+    - name: Display cleanup summary
+      ansible.builtin.debug:
+        msg: |
+          ✅ System Cleanup Complete for {{ inventory_hostname }}!
+
+          💾 Disk Space:
+             Before: {{ space_before }}
+             After:  {{ space_after }}
+
+          🧹 Cleaned:
+             📦 Package cache and orphans
+             📝 Log files older than 30 days
+             🐳 Docker unused resources
+             🗂️  Temporary files and caches
+             💾 Old backup files (30+ days)
+
+          📊 Status: System optimized and ready
+          📝 Log: /var/log/atl/system-cleanup.log

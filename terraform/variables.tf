@@ -27,11 +27,7 @@ variable "server_image" {
   default     = "ubuntu-22.04"
 }
 
-variable "backup_enabled" {
-  description = "Whether to enable backup server"
-  type        = bool
-  default     = true
-}
+
 
 variable "network_cidr" {
   description = "CIDR block for the main network"
@@ -86,10 +82,7 @@ variable "cloudflare_account_id" {
   sensitive   = true
 }
 
-variable "domain_name" {
-  description = "Domain name managed by Cloudflare"
-  type        = string
-}
+
 
 variable "dns_ttl" {
   description = "DNS TTL for records"
@@ -97,35 +90,15 @@ variable "dns_ttl" {
   default     = 300
 }
 
-variable "cloudflare_proxy_enabled" {
-  description = "Enable Cloudflare proxy (orange cloud)"
-  type        = bool
-  default     = true
-}
 
-variable "cloudflare_ssl_mode" {
-  description = "SSL mode (off, flexible, full, strict)"
-  type        = string
-  default     = "full"
-}
 
-variable "cloudflare_always_https" {
-  description = "Always use HTTPS"
-  type        = bool
-  default     = true
-}
 
-variable "cloudflare_security_level" {
-  description = "Security level (essentially_off, low, medium, high, under_attack)"
-  type        = string
-  default     = "medium"
-}
 
-variable "enable_wildcard_dns" {
-  description = "Enable wildcard DNS record"
-  type        = bool
-  default     = false
-}
+
+
+
+
+
 
 variable "enable_api_caching" {
   description = "Enable API endpoint caching"
@@ -133,11 +106,7 @@ variable "enable_api_caching" {
   default     = false
 }
 
-variable "enable_rate_limiting" {
-  description = "Enable rate limiting"
-  type        = bool
-  default     = true
-}
+
 
 variable "enable_origin_ca" {
   description = "Enable Cloudflare Origin CA certificate"

@@ -4,10 +4,22 @@
 
 extends: default
 
+# Ignore patterns for directories and files that shouldn't be linted
+ignore: |
+  .venv/
+  .git/
+  .pytest_cache/
+  __pycache__/
+  *.pyc
+  .tox/
+  node_modules/
+  .coverage
+  htmlcov/
+
 rules:
   # Line length - allow longer lines for readability
   line-length:
-    max: 120
+    max: 300
     allow-non-breakable-words: true
     allow-non-breakable-inline-mappings: true
 

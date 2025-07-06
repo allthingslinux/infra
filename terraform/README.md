@@ -112,28 +112,18 @@ No modules.
 | [hcloud_server.domains](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/server) | resource |
 | [hcloud_server.shared](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/server) | resource |
 | [hcloud_ssh_key.default](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/resources/ssh_key) | resource |
-| [hcloud_images.ubuntu](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/data-sources/images) | data source |
-| [hcloud_server_types.available](https://registry.terraform.io/providers/hetznercloud/hcloud/latest/docs/data-sources/server_types) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_allowed_ssh_ips"></a> [allowed\_ssh\_ips](#input\_allowed\_ssh\_ips) | List of IP addresses allowed to SSH | `list(string)` | <pre>[<br>  "0.0.0.0/0"<br>]</pre> | no |
-| <a name="input_backup_enabled"></a> [backup\_enabled](#input\_backup\_enabled) | Whether to enable backup server | `bool` | `true` | no |
 | <a name="input_cloudflare_account_id"></a> [cloudflare\_account\_id](#input\_cloudflare\_account\_id) | Cloudflare account ID | `string` | n/a | yes |
-| <a name="input_cloudflare_always_https"></a> [cloudflare\_always\_https](#input\_cloudflare\_always\_https) | Always use HTTPS | `bool` | `true` | no |
 | <a name="input_cloudflare_api_token"></a> [cloudflare\_api\_token](#input\_cloudflare\_api\_token) | Cloudflare API token | `string` | n/a | yes |
-| <a name="input_cloudflare_proxy_enabled"></a> [cloudflare\_proxy\_enabled](#input\_cloudflare\_proxy\_enabled) | Enable Cloudflare proxy (orange cloud) | `bool` | `true` | no |
-| <a name="input_cloudflare_security_level"></a> [cloudflare\_security\_level](#input\_cloudflare\_security\_level) | Security level (essentially\_off, low, medium, high, under\_attack) | `string` | `"medium"` | no |
-| <a name="input_cloudflare_ssl_mode"></a> [cloudflare\_ssl\_mode](#input\_cloudflare\_ssl\_mode) | SSL mode (off, flexible, full, strict) | `string` | `"full"` | no |
 | <a name="input_csr_content"></a> [csr\_content](#input\_csr\_content) | CSR content for Origin CA certificate | `string` | `""` | no |
 | <a name="input_dns_ttl"></a> [dns\_ttl](#input\_dns\_ttl) | DNS TTL for records | `number` | `300` | no |
-| <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | Domain name managed by Cloudflare | `string` | n/a | yes |
 | <a name="input_enable_api_caching"></a> [enable\_api\_caching](#input\_enable\_api\_caching) | Enable API endpoint caching | `bool` | `false` | no |
 | <a name="input_enable_origin_ca"></a> [enable\_origin\_ca](#input\_enable\_origin\_ca) | Enable Cloudflare Origin CA certificate | `bool` | `false` | no |
-| <a name="input_enable_rate_limiting"></a> [enable\_rate\_limiting](#input\_enable\_rate\_limiting) | Enable rate limiting | `bool` | `true` | no |
-| <a name="input_enable_wildcard_dns"></a> [enable\_wildcard\_dns](#input\_enable\_wildcard\_dns) | Enable wildcard DNS record | `bool` | `false` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | Environment name (development, staging, production) | `string` | n/a | yes |
 | <a name="input_hcloud_token"></a> [hcloud\_token](#input\_hcloud\_token) | Hetzner Cloud API token | `string` | n/a | yes |
 | <a name="input_load_balancer_enabled"></a> [load\_balancer\_enabled](#input\_load\_balancer\_enabled) | Whether to create a load balancer | `bool` | `false` | no |
