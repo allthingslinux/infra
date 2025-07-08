@@ -5,16 +5,6 @@ description = "All Things Linux Infrastructure Management"
 readme = "README.md"
 requires-python = ">=3.13.2"
 authors = [{ name = "All Things Linux", email = "admin@allthingslinux.com" }]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: POSIX :: Linux",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: System :: Systems Administration",
-]
-keywords = ["infrastructure", "ansible", "terraform", "automation", "devops"]
 
 dependencies = [
     "ansible>=11.7.0",
@@ -35,9 +25,7 @@ dependencies = [
 atl = "scripts.cli:main"
 
 [project.urls]
-Documentation = "https://docs.allthingslinux.com"
 Repository = "https://github.com/allthingslinux/infra"
-Issues = "https://github.com/allthingslinux/infra/issues"
 
 [dependency-groups]
 dev = ["ansible-lint>=25.6.1", "ruff>=0.12.2"]
