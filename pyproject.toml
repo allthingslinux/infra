@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "All Things Linux Infrastructure Management"
 readme = "README.md"
 requires-python = ">=3.13.2"
-authors = [{ name = "All Things Linux", email = "admin@allthingslinux.org" }]
+authors = [{ name = "All Things Linux", email = "admin@allthingslinux.com" }]
 
 dependencies = [
     "ansible>=11.7.0",
@@ -22,10 +22,14 @@ dependencies = [
 ]
 
 [project.scripts]
-atl = "scripts.cli:main"
+atl = "scripts.cli:cli"
 
 [project.urls]
 Repository = "https://github.com/allthingslinux/infra"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = ["ansible-lint>=25.6.1", "ruff>=0.12.2"]
@@ -51,6 +55,11 @@ test = [
 default-groups = ["dev"]
 # Manage the project environment
 managed = true
+# Enable package mode for CLI entry point installation
+package = true
+
+[tool.setuptools.packages.find]
+include = ["scripts*"]
 
 [tool.ruff]
 line-length = 88
