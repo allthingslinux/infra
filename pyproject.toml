@@ -1,58 +1,133 @@
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry]
-name = "allthingslinux-infra"
-version = "1.0.0"
-description = "Infrastructure management for All Things Linux - Ansible automation for 10,000+ member community"
-authors = ["AllThingsLinux Infrastructure Team"]
+[project]
+name = "infra"
+version = "0.1.0"
+description = "All Things Linux Infrastructure Management"
 readme = "README.md"
-package-mode = true
-packages = [{ include = "scripts" }]
+requires-python = ">=3.13.2"
+authors = [{ name = "All Things Linux", email = "admin@allthingslinux.com" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Systems Administration",
+]
+keywords = ["infrastructure", "ansible", "terraform", "automation", "devops"]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-# Core Ansible
-ansible = ">=8.0.0"
-ansible-core = ">=2.16.11"
-ansible-runner = ">=2.3.0"
+dependencies = [
+    "ansible>=11.7.0",
+    "ansible-core>=2.18.6",
+    "ansible-runner>=2.4.1",
+    "click>=8.2.1",
+    "docker>=7.1.0",
+    "httpx>=0.28.1",
+    "jinja2>=3.1.6",
+    "pyyaml>=6.0.2",
+    "requests>=2.32.4",
+    "rich>=14.0.0",
+    "tabulate>=0.9.0",
+    "urllib3>=2.5.0",
+]
 
-# Cloud and Infrastructure
-docker = ">=6.0.0"
-PyYAML = ">=6.0.0"
-Jinja2 = ">=3.1.0"
+[project.scripts]
+atl = "scripts.cli:main"
 
-# Networking and HTTP
-requests = ">=2.28.0"
-urllib3 = ">=1.26.0"
+[project.urls]
+Documentation = "https://docs.allthingslinux.com"
+Repository = "https://github.com/allthingslinux/infra"
+Issues = "https://github.com/allthingslinux/infra/issues"
 
-# Utility
-rich = ">=13.0.0"    # Better terminal output
-click = ">=8.1.0"    # CLI utilities
-tabulate = ">=0.9.0" # Table formatting
+[dependency-groups]
+dev = ["ansible-lint>=25.6.1", "ruff>=0.12.2"]
+docs = [
+    "cairosvg>=2.8.2",
+    "mkdocs>=1.6.1",
+    "mkdocs-include-markdown-plugin>=7.1.6",
+    "mkdocs-material>=9.6.15",
+    "mkdocs-mermaid2-plugin>=1.2.1",
+    "mkdocs-minify-plugin>=0.8.0",
+    "pillow>=11.3.0",
+    "pymdown-extensions>=10.16",
+]
+test = [
+    "molecule>=25.6.0",
+    "molecule-plugins>=23.7.0",
+    "pytest>=8.4.1",
+    "pytest-ansible>=25.6.3",
+]
 
-# Documentation automation tools
-mkdocs = ">=1.5.0"
-mkdocs-material = ">=9.4.0"
-pymdown-extensions = ">=10.0.0"
-mkdocs-mermaid2-plugin = ">=1.1.0"
-mkdocs-include-markdown-plugin = ">=6.0.0"
-mkdocs-minify-plugin = ">=0.7.1"
-pillow = ">=10.1.0"
-cairosvg = ">=2.7.1"
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
+[tool.uv]
+# Include dev dependencies by default for development workflow
+default-groups = ["dev"]
+# Manage the project environment
+managed = true
+# Package configuration
+package = true
+# Use stable resolution strategy
+index-strategy = "first-index"
+# Enable preview features for latest uv capabilities
+preview = false
 
-[tool.poetry.group.dev.dependencies]
-# Development and Testing
-pytest = ">=7.2.0"
-pytest-ansible = ">=4.1.0"
-molecule = ">=5.0.0"
-molecule-plugins = ">=23.4.0"
+[tool.uv.dependency-groups]
+# Additional configuration for dependency groups
+dev = { requires-python = ">=3.13.2" }
+docs = { requires-python = ">=3.13.2" }
+test = { requires-python = ">=3.13.2" }
 
-# Code Quality
-ansible-lint = ">=6.22.0"
+[tool.hatchling.build.targets.wheel]
+packages = ["scripts"]
 
+[tool.hatchling.build.targets.sdist]
+include = [
+    "scripts/",
+    "ansible/",
+    "terraform/",
+    "docs/",
+    "configs/",
+    "README.md",
+    "pyproject.toml",
+]
 
-[tool.poetry.scripts]
-atl = "scripts.cli:cli"
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+extend-exclude = ["*.lock", "*.log", "tmp/", "logs/", ".venv/", "__pycache__/"]
+
+[tool.ruff.lint]
+# Enable recommended rules
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501", # line too long, handled by formatter
+    "B008", # do not perform function calls in argument defaults
+    "C901", # too complex
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = ["--strict-markers", "--disable-warnings", "--color=yes"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
