@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "All Things Linux Infrastructure Management"
 readme = "README.md"
 requires-python = ">=3.13.2"
-authors = [{ name = "All Things Linux", email = "admin@allthingslinux.com" }]
+authors = [{ name = "All Things Linux", email = "admin@allthingslinux.org" }]
 
 dependencies = [
     "ansible>=11.7.0",
@@ -46,41 +46,11 @@ test = [
     "pytest-ansible>=25.6.3",
 ]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [tool.uv]
 # Include dev dependencies by default for development workflow
 default-groups = ["dev"]
 # Manage the project environment
 managed = true
-# Package configuration
-package = true
-# Use stable resolution strategy
-index-strategy = "first-index"
-# Enable preview features for latest uv capabilities
-preview = false
-
-[tool.uv.dependency-groups]
-# Additional configuration for dependency groups
-dev = { requires-python = ">=3.13.2" }
-docs = { requires-python = ">=3.13.2" }
-test = { requires-python = ">=3.13.2" }
-
-[tool.hatchling.build.targets.wheel]
-packages = ["scripts"]
-
-[tool.hatchling.build.targets.sdist]
-include = [
-    "scripts/",
-    "ansible/",
-    "terraform/",
-    "docs/",
-    "configs/",
-    "README.md",
-    "pyproject.toml",
-]
 
 [tool.ruff]
 line-length = 88
