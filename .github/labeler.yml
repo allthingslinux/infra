@@ -57,6 +57,7 @@ scripts:
   - changed-files:
       - any-glob-to-any-file: "scripts/**/*"
       - any-glob-to-any-file: "pyproject.toml"
+      - any-glob-to-any-file: "uv.lock"
 
 gitops:
   - changed-files:
@@ -75,6 +76,7 @@ security:
       - any-glob-to-any-file: "ansible/playbooks/security/**/*"
       - any-glob-to-any-file: "terraform/modules/security/**/*"
       - any-glob-to-any-file: ".gitleaks.toml"
+      - any-glob-to-any-file: ".gitleaksignore"
       - any-glob-to-any-file: ".trivyignore"
 
 monitoring:
@@ -113,6 +115,10 @@ config:
       - any-glob-to-any-file: ".yamllint.yml"
       - any-glob-to-any-file: ".ansible-lint"
       - any-glob-to-any-file: ".tflint.hcl"
+      - any-glob-to-any-file: ".gitignore"
+      - any-glob-to-any-file: ".python-version"
+      - any-glob-to-any-file: ".vscode/**/*"
+      - any-glob-to-any-file: ".cursor/**/*"
 
 # == DOCUMENTATION ==
 # Only actual documentation
