@@ -1,0 +1,12 @@
+---
+- name: Set Internal DNS Resolver
+  hosts: all:!internal_dns
+  become: true
+  gather_facts: true
+
+  vars:
+    internal_dns_ip: "{{ hostvars[groups['internal_dns'][0]]['ansible_host'] }}"
+
+  tasks:
+    - name: Configure internal DNS resolver
+      ansible.builtin.import_tasks: ../../roles/system/tasks/set_dns_resolver.yml

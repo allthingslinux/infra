@@ -1,0 +1,26 @@
+---
+- name: Deploy Internal DNS (CoreDNS)
+  hosts: internal_dns
+  become: true
+  gather_facts: true
+
+  vars:
+    coredns_hosts_block: |
+      {% for host in groups['all'] %}
+      {% if hostvars[host]['private_ip'] is defined %}
+      {{ hostvars[host]['private_ip'] }} {{ host }}
+      {% endif %}
+      {% endfor %}
+    coredns_default_zones:
+      - name: internal.atl
+        plugins:
+          - name: hosts
+            config: |
+              {{ coredns_hosts_block }}
+              fallthrough
+          - name: forward
+            args: . 1.1.1.1 8.8.8.8
+          - name: log
+
+  roles:
+    - rolehippie.coredns

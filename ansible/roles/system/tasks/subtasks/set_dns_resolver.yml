@@ -1,0 +1,13 @@
+---
+- name: set_dns_resolver | Configure systemd-resolved for internal DNS
+  community.general.ini_file:
+    path: /etc/systemd/resolved.conf.d/10-internal-dns.conf
+    section: Resolve
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    mode: "0644"
+  with_items:
+    - { option: "DNS", value: "{{ internal_dns_ip }}" }
+    - { option: "Domains", value: "internal.atl" }
+  notify: Restart systemd-resolved
+  become: true
