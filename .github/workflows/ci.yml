@@ -385,14 +385,7 @@ jobs:
 
           echo "::group::Config Validation"
           if [[ -f configs/domains.yml && -f configs/environments.yml ]]; then
-            uv run python -c "
-            import yaml
-            with open('configs/domains.yml') as f:
-                domains = yaml.safe_load(f)
-            with open('configs/environments.yml') as f:
-                envs = yaml.safe_load(f)
-            print('✅ Configuration files are valid YAML')
-            "
+            uv run python -c "import yaml; domains = yaml.safe_load(open('configs/domains.yml')); envs = yaml.safe_load(open('configs/environments.yml')); print('✅ Configuration files are valid YAML')"
           else
             echo "ℹ️ Config files not found, skipping validation"
           fi
