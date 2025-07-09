@@ -13,11 +13,11 @@ on:
     paths:
       - "**.yml"
       - "**.yaml"
-      - "playbooks/**"
-      - "roles/**"
-      - "inventories/**"
-      - "group_vars/**"
-      - "host_vars/**"
+      - "ansible/playbooks/**"
+      - "ansible/roles/**"
+      - "ansible/inventories/**"
+      - "ansible/group_vars/**"
+      - "ansible/host_vars/**"
   pull_request:
     branches:
       - main
@@ -25,11 +25,11 @@ on:
     paths:
       - "**.yml"
       - "**.yaml"
-      - "playbooks/**"
-      - "roles/**"
-      - "inventories/**"
-      - "group_vars/**"
-      - "host_vars/**"
+      - "ansible/playbooks/**"
+      - "ansible/roles/**"
+      - "ansible/inventories/**"
+      - "ansible/group_vars/**"
+      - "ansible/host_vars/**"
   workflow_dispatch:
 jobs:
   ansible-lint:
@@ -67,7 +67,7 @@ jobs:
 
       - name: Run ansible-lint
         run: |
-          uv run ansible-lint playbooks/ roles/ --format codeclimate
+          uv run ansible-lint ansible/playbooks/ ansible/roles/ --format codeclimate
 
   yaml-syntax:
     name: YAML Syntax Check
@@ -185,7 +185,7 @@ jobs:
 
       - name: Test playbook syntax
         run: |
-          uv run ansible-playbook --syntax-check playbooks/site.yml
+          uv run ansible-playbook --syntax-check ansible/playbooks/site.yml
 
       - name: Test dynamic inventory parsing
         run: |
