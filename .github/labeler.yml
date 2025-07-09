@@ -37,6 +37,9 @@ staging:
 development:
   - changed-files:
       - any-glob-to-any-file: "terraform/environments/development/**/*"
+      - any-glob-to-any-file: "Vagrantfile"
+      - any-glob-to-any-file: "vagrant.yml"
+      - any-glob-to-any-file: ".vagrant/**/*"
 
 # == TECHNICAL DOMAINS ==
 # Clear separation for different expertise areas
@@ -46,6 +49,21 @@ infrastructure:
       - any-glob-to-any-file: "terraform/**/*"
       - any-glob-to-any-file: "ansible/playbooks/infrastructure/**/*"
       - any-glob-to-any-file: "ansible/roles/system/**/*"
+      - any-glob-to-any-file: "ansible.cfg"
+      - any-glob-to-any-file: "configs/domains.yml"
+      - any-glob-to-any-file: "configs/environments.yml"
+      - any-glob-to-any-file: "ansible/playbooks/monitoring/**/*"
+      - any-glob-to-any-file: "ansible/playbooks/security/**/*"
+      - any-glob-to-any-file: "terraform/modules/security/**/*"
+      - any-glob-to-any-file: "ansible/playbooks/domains/**/*"
+      - any-glob-to-any-file: "ansible/roles/tux/**/*"
+      - any-glob-to-any-file: "ansible/playbooks/emergency/**/*"
+      - any-glob-to-any-file: "ansible/playbooks/maintenance/**/*"
+      - any-glob-to-any-file: "ansible/playbooks/validation/**/*"
+      - any-glob-to-any-file: "terraform/README.md"
+      - any-glob-to-any-file: "terraform/modules/*/README.md"
+      - any-glob-to-any-file: "ansible/README.md"
+      - any-glob-to-any-file: "ansible/roles/*/README.md"
 
 docker:
   - changed-files:
@@ -66,12 +84,16 @@ scripts:
       - any-glob-to-any-file: "scripts/**/*"
       - any-glob-to-any-file: "pyproject.toml"
       - any-glob-to-any-file: "uv.lock"
+      - any-glob-to-any-file: "scripts/README.md"
 
 gitops:
   - changed-files:
       - any-glob-to-any-file: "ansible/playbooks/operations/**/*"
       - any-glob-to-any-file: "ansible/playbooks/dynamic-deploy.yml"
       - any-glob-to-any-file: "ansible/inventories/**/*"
+      - any-glob-to-any-file: "ansible/playbooks/infrastructure/**/*"
+      - any-glob-to-any-file: "ansible/playbooks/domains/**/*"
+      - any-glob-to-any-file: "ansible/playbooks/monitoring/**/*"
 
 vagrant:
   - changed-files:
@@ -92,6 +114,7 @@ monitoring:
       - any-glob-to-any-file: "monitoring/**/*"
       - any-glob-to-any-file: "ansible/playbooks/monitoring/**/*"
       - any-glob-to-any-file: "ansible/tasks/monitoring-integration.yml"
+      - any-glob-to-any-file: "monitoring/README.md"
 
 # == URGENCY & PRIORITY ==
 # Help with triage and response times
@@ -144,3 +167,9 @@ docs:
       - any-glob-to-any-file: "README.md"
       - any-glob-to-any-file: "mkdocs.yml"
       - any-glob-to-any-file: "*/README.md"
+      - any-glob-to-any-file: "terraform/README.md"
+      - any-glob-to-any-file: "terraform/modules/*/README.md"
+      - any-glob-to-any-file: "ansible/README.md"
+      - any-glob-to-any-file: "ansible/roles/*/README.md"
+      - any-glob-to-any-file: "scripts/README.md"
+      - any-glob-to-any-file: "monitoring/README.md"
