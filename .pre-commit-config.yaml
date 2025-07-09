@@ -6,6 +6,13 @@ ci:
   # This section is specific to pre-commit.ci
   autoupdate_schedule: monthly
   # ansible-lint is disabled in pre-commit and runs in CI only
+  # Terraform tools are not available in pre-commit.ci environment
+  skip:
+    - terraform_fmt
+    - terraform_validate
+    - terraform_docs
+    - terraform_tflint
+    - terraform_providers_lock
 
 repos:
   # Ansible Lint - Disabled in pre-commit, runs in CI only
