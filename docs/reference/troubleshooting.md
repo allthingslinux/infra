@@ -280,8 +280,9 @@ ansible all -i inventories/dynamic.py -a "ls -la /problematic/path"
 2. **Ignore specific rules:**
 
    ```bash
-   # Add to .ansible-lint-ignore
-   echo "filename rule_name # reason" >> .ansible-lint-ignore
+   # Add to .ansible-lint skip_list or warn_list
+   # Edit .ansible-lint file to add rule to skip_list
+   vim .ansible-lint
    ```
 
 ### Pre-commit Hooks
