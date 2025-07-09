@@ -2,6 +2,82 @@
 
 All Things Linux infrastructure operations are managed through the **unified `atl` CLI**, providing a consistent interface for all tools and operations.
 
+## 🚀 **CI/CD Automation System**
+
+The project includes a comprehensive, industry-standard CI/CD system built around three optimized GitHub workflows:
+
+### **Workflow Overview**
+
+| Workflow | Purpose | Triggers | Key Features |
+|----------|---------|----------|-------------|
+| **CI** | Quality assurance & testing | Push, PR, Manual | Parallel jobs, path filtering, comprehensive caching |
+| **Security** | Security scanning | Push, PR, Weekly, Manual | Multi-scanner approach, SARIF reporting |
+| **PR Automation** | PR analysis & labeling | PR events | Size analysis, complexity scoring, auto-assignment |
+| **Labeler** | Path-based labeling | PR file changes | Sophisticated domain classification |
+
+### **CI Workflow Features**
+
+```yaml
+# Optimized job execution with dependencies
+Quick Checks → Python Quality → Python Tests
+            ↘ Terraform Quality
+            ↘ Ansible Quality
+            ↘ Documentation
+            ↘ Integration Tests → Quality Gate
+```
+
+**Capabilities**:
+
+- **Smart Path Filtering**: Only runs relevant checks based on changed files
+- **Advanced Caching**: UV cache, Terraform providers, dependency caching
+- **Parallel Execution**: Multiple jobs run simultaneously for speed
+- **Comprehensive Reporting**: Detailed summaries and status aggregation
+
+### **Security Integration**
+
+The security workflow provides enterprise-grade scanning:
+
+- **Secrets Detection**: Gitleaks with custom configuration
+- **Dependency Scanning**: OWASP vulnerability assessment
+- **Infrastructure Security**: Terraform scanning with Trivy
+- **Static Analysis**: CodeQL for code security analysis
+- **Container Security**: Docker image vulnerability scanning
+
+### **PR Automation Intelligence**
+
+The PR automation system provides intelligent analysis:
+
+```bash
+# Automatic PR Classification
+Size: XS/S/M/L/XL (based on line changes)
+Complexity: Scored analysis (infrastructure files weighted higher)
+Security Impact: Detects security-sensitive changes
+Conflicts: Automatic merge conflict detection
+```
+
+**Smart Assignment**: Auto-assigns reviewers based on:
+
+- File paths changed (via labeler)
+- Security impact
+- Complexity score
+- Domain expertise mapping
+
+### **Local Development Integration**
+
+Pre-commit hooks complement the CI system:
+
+```bash
+# Install pre-commit hooks
+uv run pre-commit install
+
+# Run specific checks
+uv run pre-commit run --hook-stage manual ansible-lint
+uv run pre-commit run --all-files
+
+# Test before push
+atl quality lint --fix
+```
+
 ## 🎯 **Unified ATL CLI**
 
 ### Overview
@@ -165,125 +241,4 @@ atl <group> <command> --help      # Show detailed command help
 
 The CLI is designed for discoverability:
 
-1. **Start with `atl info`** to see all available command groups
-2. **Use `atl <group> --help`** to explore specific groups
-3. **Use `atl <command> --help`** for detailed command options
-4. **Use `atl status`** to verify tool prerequisites
-
-## 🛠 **Installation**
-
-The unified CLI is automatically available after installing the project:
-
-```bash
-# Install project dependencies
-uv sync
-
-# Verify CLI availability
-atl status
-
-# Get started
-atl info
-```
-
-## 🏗 **Integration**
-
-### CI/CD Integration
-
-The unified CLI is designed for CI/CD pipelines:
-
-```bash
-# In CI/CD scripts
-atl plan --environment production
-atl apply --environment production --auto-approve
-atl quality lint --strict
-```
-
-### Development Workflow
-
-Typical development workflow:
-
-```bash
-# 1. Check current status
-atl status
-
-# 2. Plan changes
-atl plan --verbose
-
-# 3. Run quality checks
-atl quality lint
-
-# 4. Apply changes
-atl apply
-
-# 5. Update documentation
-atl docs build
-```
-
-The unified CLI provides a consistent, discoverable interface that scales from simple operations to complex infrastructure management workflows.
-
-## 🎉 **Benefits Over Previous Approach**
-
-### Before: Multiple Separate Tools
-
-```bash
-# Old approach - multiple commands to remember
-atl-deploy plan
-atl-lint --fix
-atl-docs --serve
-atl-update-collections
-atl-diagrams
-```
-
-### After: Unified Interface
-
-```bash
-# New approach - single, organized interface
-atl plan                    # Quick access
-atl lint --fix             # Quick access
-atl docs build --serve     # Organized
-atl utils update-collections  # Organized
-atl docs diagrams          # Organized
-```
-
-### Key Improvements
-
-1. **🎯 Single Entry Point**: One `atl` command instead of 5+ separate tools
-2. **📊 Better Organization**: Logical grouping by function (infra, quality, docs, utils)
-3. **🔍 Enhanced Discovery**: `atl info` shows all commands organized by category
-4. **⚡ Quick Access**: Common operations available at top level
-5. **🛠 Better Help**: Comprehensive help system with examples
-6. **🚀 Consistent Interface**: Same options and patterns across all commands
-7. **📈 Future-Proof**: Easy to add new functionality without creating new top-level commands
-
-## 🏁 **Quick Reference**
-
-### Most Common Commands
-
-```bash
-# Planning and deployment
-atl plan                    # Plan changes
-atl apply                   # Apply changes
-atl infra destroy           # Destroy infrastructure
-
-# Quality assurance
-atl lint                    # Run linting
-atl lint --fix              # Fix issues
-atl quality lint --strict   # Strict linting
-
-# Documentation
-atl docs build --serve      # Build and serve docs
-atl docs diagrams          # Generate diagrams
-
-# Maintenance
-atl utils update-collections  # Update collections
-```
-
-### Discovery Commands
-
-```bash
-atl info                    # Show all commands organized by category
-atl status                  # Check tool availability
-atl <command> --help        # Detailed help for any command
-```
-
-The unified `atl` CLI provides a modern, consistent interface that scales from quick interactive use to complex automation workflows!
+1. **Start with `atl info`

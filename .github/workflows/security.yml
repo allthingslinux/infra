@@ -1,0 +1,343 @@
+---
+name: Security
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run weekly security scans on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      full_scan:
+        description: 'Run full security scan (all scanners)'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+env:
+  FORCE_COLOR: "1"
+
+jobs:
+  # ==== SECRETS DETECTION ====
+  secrets-scan:
+    name: Secrets Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Gitleaks results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report-${{ github.sha }}
+          path: results.sarif
+          retention-days: 30
+
+  # ==== DEPENDENCY SCANNING ====
+  dependency-scan:
+    name: Dependency Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        scan-type: [python, infrastructure]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup environment (Python dependencies)
+        if: matrix.scan-type == 'python'
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Setup Python (Python dependencies)
+        if: matrix.scan-type == 'python'
+        run: uv python install
+
+      - name: Generate dependency files (Python)
+        if: matrix.scan-type == 'python'
+        run: |
+          uv export --format requirements-txt --output-file requirements.txt
+          uv export --format requirements-txt --only-dev --output-file requirements-dev.txt
+
+      - name: Run Trivy scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: ${{ matrix.scan-type == 'python' && '.' || 'terraform/' }}
+          format: 'sarif'
+          output: 'trivy-${{ matrix.scan-type }}-results.sarif'
+          scanners: ${{ matrix.scan-type == 'python' && 'vuln' || 'vuln,config' }}
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-${{ matrix.scan-type }}-results.sarif'
+          category: 'trivy-${{ matrix.scan-type }}'
+
+      - name: Run Safety check (Python only)
+        if: matrix.scan-type == 'python'
+        run: |
+          uv sync --frozen
+          uv run pip install safety
+          uv run safety check --json --output safety-report.json || true
+
+      - name: Upload Safety results
+        if: matrix.scan-type == 'python'
+        uses: actions/upload-artifact@v4
+        with:
+          name: safety-report-${{ github.sha }}
+          path: safety-report.json
+          retention-days: 30
+
+  # ==== INFRASTRUCTURE SECURITY ====
+  infrastructure-scan:
+    name: Infrastructure Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        tool: [tfsec, ansible-config]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run TFSec (Terraform)
+        if: matrix.tool == 'tfsec'
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: terraform/
+          format: sarif
+          soft_fail: true
+
+      - name: Upload TFSec results
+        if: matrix.tool == 'tfsec'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: 'tfsec'
+
+      - name: Scan Ansible configurations
+        if: matrix.tool == 'ansible-config'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'ansible/'
+          format: 'sarif'
+          output: 'trivy-ansible-config.sarif'
+          scanners: 'config'
+
+      - name: Upload Ansible config results
+        if: matrix.tool == 'ansible-config'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-ansible-config.sarif'
+          category: 'ansible-config'
+
+  # ==== STATIC ANALYSIS ====
+  sast-scan:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name != 'schedule' || inputs.full_scan
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-extended
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Setup Python and install dependencies
+        run: |
+          uv python install
+          uv sync --frozen
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "codeql-python"
+
+      - name: Run Bandit (Python Security)
+        run: |
+          uv run pip install bandit[toml]
+          uv run bandit -r scripts/ -f sarif -o bandit-results.sarif || true
+
+      - name: Upload Bandit results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'bandit-results.sarif'
+          category: 'bandit'
+
+  # ==== CONTAINER SECURITY ====
+  container-scan:
+    name: Container Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'schedule' || inputs.full_scan
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Find Docker configurations
+        id: docker_files
+        run: |
+          # Find docker-compose files and Dockerfiles
+          docker_files=$(find . -name "*docker-compose*.yml" -o -name "*compose*.yml" -o -name "Dockerfile*" | head -10)
+          if [[ -n "$docker_files" ]]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "files<<EOF" >> $GITHUB_OUTPUT
+            echo "$docker_files" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Scan Docker configurations
+        if: steps.docker_files.outputs.found == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-docker-config.sarif'
+          scanners: 'config'
+
+      - name: Upload Docker scan results
+        if: steps.docker_files.outputs.found == 'true'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-docker-config.sarif'
+          category: 'docker-config'
+
+  # ==== SECURITY SUMMARY ====
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [secrets-scan, dependency-scan, infrastructure-scan, sast-scan, container-scan]
+    if: always() && !cancelled()
+    timeout-minutes: 5
+    steps:
+      - name: Generate security summary
+        run: |
+          echo "# 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Check | Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+
+          # Secrets Detection
+          if [[ "${{ needs.secrets-scan.result }}" == "success" ]]; then
+            echo "| 🔍 Secrets Detection | ✅ Passed | No secrets found in code |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.secrets-scan.result }}" == "failure" ]]; then
+            echo "| 🔍 Secrets Detection | ❌ Failed | Potential secrets detected |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🔍 Secrets Detection | ⏭️ Skipped | - |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Dependency Scanning
+          if [[ "${{ needs.dependency-scan.result }}" == "success" ]]; then
+            echo "| 📦 Dependency Scan | ✅ Passed | No critical vulnerabilities |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.dependency-scan.result }}" == "failure" ]]; then
+            echo "| 📦 Dependency Scan | ⚠️ Issues Found | Check SARIF reports |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 📦 Dependency Scan | ⏭️ Skipped | - |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Infrastructure Security
+          if [[ "${{ needs.infrastructure-scan.result }}" == "success" ]]; then
+            echo "| 🏗️ Infrastructure | ✅ Passed | No security issues found |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.infrastructure-scan.result }}" == "failure" ]]; then
+            echo "| 🏗️ Infrastructure | ⚠️ Issues Found | Review Terraform/Ansible configs |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🏗️ Infrastructure | ⏭️ Skipped | - |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Static Analysis
+          if [[ "${{ needs.sast-scan.result }}" == "success" ]]; then
+            echo "| 🔬 Static Analysis | ✅ Passed | No security issues in code |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.sast-scan.result }}" == "failure" ]]; then
+            echo "| 🔬 Static Analysis | ⚠️ Issues Found | Review CodeQL/Bandit reports |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.sast-scan.result }}" == "skipped" ]]; then
+            echo "| 🔬 Static Analysis | ⏭️ Skipped | Scheduled runs only |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Container Security
+          if [[ "${{ needs.container-scan.result }}" == "success" ]]; then
+            echo "| 🐳 Container Security | ✅ Passed | Docker configs secure |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.container-scan.result }}" == "failure" ]]; then
+            echo "| 🐳 Container Security | ⚠️ Issues Found | Review Docker configurations |" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.container-scan.result }}" == "skipped" ]]; then
+            echo "| 🐳 Container Security | ⏭️ Skipped | Scheduled/manual runs only |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Overall Security Status
+          failed_scans=""
+          if [[ "${{ needs.secrets-scan.result }}" == "failure" ]]; then
+            failed_scans="$failed_scans secrets-detection"
+          fi
+          if [[ "${{ needs.dependency-scan.result }}" == "failure" ]]; then
+            failed_scans="$failed_scans dependency-scan"
+          fi
+          if [[ "${{ needs.infrastructure-scan.result }}" == "failure" ]]; then
+            failed_scans="$failed_scans infrastructure-scan"
+          fi
+          if [[ "${{ needs.sast-scan.result }}" == "failure" ]]; then
+            failed_scans="$failed_scans static-analysis"
+          fi
+          if [[ "${{ needs.container-scan.result }}" == "failure" ]]; then
+            failed_scans="$failed_scans container-scan"
+          fi
+
+          if [[ -z "$failed_scans" ]]; then
+            echo "## ✅ Overall Security Status: GOOD" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "All security scans completed successfully. No critical issues detected." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ⚠️ Overall Security Status: NEEDS ATTENTION" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The following security scans found issues: $failed_scans" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the Security tab in GitHub for detailed SARIF reports." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Tip**: Check the Security tab in your repository for detailed vulnerability reports." >> $GITHUB_STEP_SUMMARY

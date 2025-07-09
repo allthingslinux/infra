@@ -1,0 +1,429 @@
+---
+name: PR Automation
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: pr-automation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # ==== PR ANALYSIS ====
+  pr-analysis:
+    name: PR Analysis
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 10
+    outputs:
+      size-label: ${{ steps.pr_stats.outputs.size_label }}
+      review-time: ${{ steps.pr_stats.outputs.review_time }}
+      has-security-impact: ${{ steps.security_check.outputs.has_security_impact }}
+      has-conflicts: ${{ steps.conflict_check.outputs.has_conflicts }}
+      complexity-score: ${{ steps.complexity.outputs.score }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate PR statistics
+        id: pr_stats
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          # Calculate changes
+          ADDITIONS=$(git diff --numstat $BASE_SHA..$HEAD_SHA | awk '{sum += $1} END {print sum+0}')
+          DELETIONS=$(git diff --numstat $BASE_SHA..$HEAD_SHA | awk '{sum += $2} END {print sum+0}')
+          CHANGED_FILES=$(git diff --name-only $BASE_SHA..$HEAD_SHA | wc -l)
+          TOTAL_CHANGES=$((ADDITIONS + DELETIONS))
+
+          echo "additions=$ADDITIONS" >> $GITHUB_OUTPUT
+          echo "deletions=$DELETIONS" >> $GITHUB_OUTPUT
+          echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
+          echo "total_changes=$TOTAL_CHANGES" >> $GITHUB_OUTPUT
+
+          # Determine size and review time
+          if [[ $TOTAL_CHANGES -lt 10 ]]; then
+            echo "size_label=size/XS" >> $GITHUB_OUTPUT
+            echo "review_time=5 minutes" >> $GITHUB_OUTPUT
+          elif [[ $TOTAL_CHANGES -lt 50 ]]; then
+            echo "size_label=size/S" >> $GITHUB_OUTPUT
+            echo "review_time=10 minutes" >> $GITHUB_OUTPUT
+          elif [[ $TOTAL_CHANGES -lt 200 ]]; then
+            echo "size_label=size/M" >> $GITHUB_OUTPUT
+            echo "review_time=20 minutes" >> $GITHUB_OUTPUT
+          elif [[ $TOTAL_CHANGES -lt 500 ]]; then
+            echo "size_label=size/L" >> $GITHUB_OUTPUT
+            echo "review_time=45 minutes" >> $GITHUB_OUTPUT
+          else
+            echo "size_label=size/XL" >> $GITHUB_OUTPUT
+            echo "review_time=90+ minutes" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for security impact
+        id: security_check
+        run: |
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+
+          # Security-sensitive patterns
+          SECURITY_PATTERNS=(
+            "*secret*" "*password*" "*token*" "*key*" "*cert*"
+            "*ssl*" "*tls*" "*security*" "*auth*" "*firewall*" "*ssh*"
+          )
+
+          # Critical paths (complementing the labeler's security detection)
+          CRITICAL_PATHS=(
+            "terraform/modules/security/"
+            "ansible/playbooks/security/"
+            "configs/secrets"
+            ".github/workflows/"
+            "ansible/group_vars/production.yml"
+            "terraform/environments/production/"
+          )
+
+          SECURITY_IMPACT=false
+          for file in $CHANGED_FILES; do
+            # Check patterns
+            for pattern in "${SECURITY_PATTERNS[@]}"; do
+              if [[ "$file" == *"$pattern"* ]] || [[ "$(basename "$file")" == $pattern ]]; then
+                SECURITY_IMPACT=true
+                break 2
+              fi
+            done
+
+            # Check critical paths
+            for path in "${CRITICAL_PATHS[@]}"; do
+              if [[ "$file" == "$path"* ]]; then
+                SECURITY_IMPACT=true
+                break 2
+              fi
+            done
+          done
+
+          echo "has_security_impact=$SECURITY_IMPACT" >> $GITHUB_OUTPUT
+
+      - name: Check for merge conflicts
+        id: conflict_check
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+
+          if git merge-tree $(git merge-base HEAD origin/${{ github.event.pull_request.base.ref }}) HEAD origin/${{ github.event.pull_request.base.ref }} | grep -q '<<<<<<<'; then
+            echo "has_conflicts=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_conflicts=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Calculate complexity score
+        id: complexity
+        run: |
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+
+          # Calculate complexity based on file types and patterns
+          COMPLEXITY=0
+
+          for file in $CHANGED_FILES; do
+            # Infrastructure files add more complexity
+            if [[ "$file" == terraform/* ]]; then
+              COMPLEXITY=$((COMPLEXITY + 3))
+            elif [[ "$file" == ansible/* ]]; then
+              COMPLEXITY=$((COMPLEXITY + 2))
+            elif [[ "$file" == scripts/* && "$file" == *.py ]]; then
+              COMPLEXITY=$((COMPLEXITY + 2))
+            elif [[ "$file" == .github/workflows/* ]]; then
+              COMPLEXITY=$((COMPLEXITY + 3))
+            elif [[ "$file" == configs/* ]]; then
+              COMPLEXITY=$((COMPLEXITY + 2))
+            else
+              COMPLEXITY=$((COMPLEXITY + 1))
+            fi
+          done
+
+          echo "score=$COMPLEXITY" >> $GITHUB_OUTPUT
+
+  # ==== PR STATUS MANAGEMENT ====
+  # Focus on PR-specific labels that complement the labeler's path-based labels
+  pr-status:
+    name: PR Status Management
+    runs-on: ubuntu-latest
+    needs: pr-analysis
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 5
+    steps:
+      - name: Manage PR status labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {
+              size_label,
+              review_time,
+              has_security_impact,
+              has_conflicts,
+              complexity_score
+            } = ${{ toJSON(needs.pr-analysis.outputs) }};
+
+            const isDraft = context.payload.pull_request.draft;
+            const prNumber = context.payload.pull_request.number;
+
+            // Helper function to create label if it doesn't exist
+            async function ensureLabel(name, color, description) {
+              try {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: name,
+                  color: color,
+                  description: description || `Auto-managed label: ${name}`
+                });
+              } catch (error) {
+                if (error.status !== 422) throw error; // 422 = label already exists
+              }
+            }
+
+            // Get current labels
+            const { data: currentLabels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const currentLabelNames = currentLabels.map(label => label.name);
+
+            // Labels to add/remove (focus on PR-specific status, not path-based)
+            const labelsToAdd = [];
+            const labelsToRemove = [];
+
+            // Size labels (remove old ones first)
+            const sizeLabels = ['size/XS', 'size/S', 'size/M', 'size/L', 'size/XL'];
+            for (const sizeLabel of sizeLabels) {
+              if (sizeLabel !== size_label && currentLabelNames.includes(sizeLabel)) {
+                labelsToRemove.push(sizeLabel);
+              }
+            }
+
+            // Add current size label
+            if (size_label && !currentLabelNames.includes(size_label)) {
+              await ensureLabel(size_label, '0052cc', `Lines changed: ${size_label.replace('size/', '')}`);
+              labelsToAdd.push(size_label);
+            }
+
+            // Complexity labels
+            const complexity = parseInt(complexity_score);
+            let complexityLabel = '';
+            if (complexity > 20) {
+              complexityLabel = 'high-complexity';
+              await ensureLabel(complexityLabel, 'b60205', 'High complexity change requiring careful review');
+            } else if (complexity > 10) {
+              complexityLabel = 'medium-complexity';
+              await ensureLabel(complexityLabel, 'fbca04', 'Medium complexity change');
+            }
+
+            if (complexityLabel && !currentLabelNames.includes(complexityLabel)) {
+              labelsToAdd.push(complexityLabel);
+            }
+
+            // Remove other complexity labels
+            const complexityLabels = ['high-complexity', 'medium-complexity'];
+            for (const compLabel of complexityLabels) {
+              if (compLabel !== complexityLabel && currentLabelNames.includes(compLabel)) {
+                labelsToRemove.push(compLabel);
+              }
+            }
+
+            // Security impact (only if detected, let labeler handle path-based security)
+            if (has_security_impact === 'true') {
+              if (!currentLabelNames.includes('security-review-required')) {
+                await ensureLabel('security-review-required', 'd73a4a', 'Requires security team review');
+                labelsToAdd.push('security-review-required');
+              }
+            } else {
+              if (currentLabelNames.includes('security-review-required')) {
+                labelsToRemove.push('security-review-required');
+              }
+            }
+
+            // Conflict status
+            if (has_conflicts === 'true') {
+              if (!currentLabelNames.includes('needs-rebase')) {
+                await ensureLabel('needs-rebase', 'fbca04', 'Has merge conflicts');
+                labelsToAdd.push('needs-rebase');
+              }
+            } else {
+              if (currentLabelNames.includes('needs-rebase')) {
+                labelsToRemove.push('needs-rebase');
+              }
+            }
+
+            // Draft status
+            if (isDraft) {
+              if (!currentLabelNames.includes('work-in-progress')) {
+                await ensureLabel('work-in-progress', 'ededed', 'PR is still in draft');
+                labelsToAdd.push('work-in-progress');
+              }
+            } else {
+              if (currentLabelNames.includes('work-in-progress')) {
+                labelsToRemove.push('work-in-progress');
+              }
+            }
+
+            // Apply label changes
+            if (labelsToAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                labels: labelsToAdd
+              });
+              console.log(`Added labels: ${labelsToAdd.join(', ')}`);
+            }
+
+            for (const labelToRemove of labelsToRemove) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  name: labelToRemove
+                });
+                console.log(`Removed label: ${labelToRemove}`);
+              } catch (error) {
+                if (error.status !== 404) throw error; // 404 = label doesn't exist
+              }
+            }
+
+      - name: Create PR summary comment
+        uses: actions/github-script@v7
+        if: github.event.action == 'opened'
+        with:
+          script: |
+            const {
+              size_label,
+              review_time,
+              has_security_impact,
+              has_conflicts,
+              complexity_score
+            } = ${{ toJSON(needs.pr-analysis.outputs) }};
+
+            const prNumber = context.payload.pull_request.number;
+            const complexity = parseInt(complexity_score);
+
+            let summary = `## 🔍 PR Analysis Summary\n\n`;
+            summary += `**Size**: ${size_label.replace('size/', '')} (estimated review time: ${review_time})\n`;
+            summary += `**Complexity Score**: ${complexity}/30 `;
+
+            if (complexity > 20) {
+              summary += `🔴 High complexity\n`;
+            } else if (complexity > 10) {
+              summary += `🟡 Medium complexity\n`;
+            } else {
+              summary += `🟢 Low complexity\n`;
+            }
+
+            if (has_security_impact === 'true') {
+              summary += `**⚠️ Security Impact**: This PR affects security-sensitive areas and requires security review\n`;
+            }
+
+            if (has_conflicts === 'true') {
+              summary += `**❌ Merge Conflicts**: This PR has conflicts that need to be resolved\n`;
+            }
+
+            summary += `\n**📋 Component Labels**: The labeler workflow will automatically tag this PR based on changed file paths.\n`;
+            summary += `\n---\n`;
+            summary += `*This analysis complements the automated path-based labeling system*`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: summary
+            });
+
+  # ==== AUTO-ASSIGNMENT ====
+  auto-assign:
+    name: Auto Assignment
+    runs-on: ubuntu-latest
+    needs: pr-analysis
+    if: github.event.action == 'opened' && !github.event.pull_request.draft
+    timeout-minutes: 5
+    steps:
+      - name: Auto-assign reviewers based on analysis
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { has_security_impact, complexity_score } = ${{ toJSON(needs.pr-analysis.outputs) }};
+            const complexity = parseInt(complexity_score);
+
+            // Get current labels to understand what the labeler assigned
+            const { data: currentLabels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+
+            const labelNames = currentLabels.map(label => label.name);
+
+            // Define team assignments based on labels set by the labeler
+            // TODO: Replace with actual team member usernames
+            const assignments = {
+              'infrastructure': ['infrastructure-team-lead'],
+              'terraform': ['terraform-specialist'],
+              'ansible': ['ansible-specialist'],
+              'scripts': ['backend-team-lead'],
+              'security': ['security-team-lead'],
+              'ci/cd': ['devops-team-lead'],
+              'docs': ['tech-writer'],
+              'production': ['senior-engineer', 'infrastructure-team-lead'],
+              'major': ['tech-lead', 'senior-engineer'],
+              'emergency': ['on-call-engineer', 'tech-lead']
+            };
+
+            let reviewers = new Set();
+
+            // Add reviewers based on labels set by the labeler
+            for (const label of labelNames) {
+              if (assignments[label]) {
+                assignments[label].forEach(reviewer => reviewers.add(reviewer));
+              }
+            }
+
+            // Always add security reviewer for security-impactful changes
+            if (has_security_impact === 'true') {
+              reviewers.add('security-team-lead');
+            }
+
+            // Add senior reviewer for high complexity changes
+            if (complexity > 20) {
+              reviewers.add('tech-lead');
+            }
+
+            // Convert to array and filter out PR author
+            const reviewerList = Array.from(reviewers).filter(
+              reviewer => reviewer !== context.payload.pull_request.user.login
+            );
+
+            if (reviewerList.length > 0) {
+              console.log(`Requesting reviews from: ${reviewerList.join(', ')}`);
+              console.log(`Based on labels: ${labelNames.join(', ')}`);
+              // Note: This will fail if the usernames don't exist - that's expected
+              // Replace with actual team member usernames
+              try {
+                await github.rest.pulls.requestReviewers({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.payload.pull_request.number,
+                  reviewers: reviewerList
+                });
+              } catch (error) {
+                console.log(`Could not auto-assign reviewers: ${error.message}`);
+                console.log('This is expected if reviewer usernames are placeholders');
+              }
+            }

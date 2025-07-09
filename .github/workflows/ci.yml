@@ -1,0 +1,438 @@
+---
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip test jobs'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: "1"
+  UV_CACHE_DIR: ~/.cache/uv
+  ANSIBLE_FORCE_COLOR: "1"
+
+jobs:
+  # ==== QUICK CHECKS ====
+  # Fast checks that can fail early and determine what needs to run
+  quick-checks:
+    name: Quick Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      python-changed: ${{ steps.changes.outputs.python }}
+      terraform-changed: ${{ steps.changes.outputs.terraform }}
+      ansible-changed: ${{ steps.changes.outputs.ansible }}
+      docs-changed: ${{ steps.changes.outputs.docs }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            python:
+              - 'scripts/**/*.py'
+              - 'pyproject.toml'
+              - 'uv.lock'
+            terraform:
+              - 'terraform/**/*.tf'
+              - 'terraform/**/*.tfvars'
+              - '.tflint.hcl'
+            ansible:
+              - 'ansible/**/*.yml'
+              - 'ansible/**/*.yaml'
+              - 'configs/*.yml'
+              - 'ansible.cfg'
+            docs:
+              - 'docs/**/*'
+              - 'mkdocs.yml'
+              - '**/*.md'
+
+      - name: Check file permissions
+        run: |
+          echo "::group::Checking file permissions"
+          # Check for executable YAML files (should not be executable)
+          if find . -name "*.yml" -o -name "*.yaml" | xargs ls -la | grep '^-rwxr'; then
+            echo "❌ Found executable YAML files"
+            exit 1
+          fi
+          # Check for missing shebangs on executable scripts
+          if find scripts/ -type f -executable 2>/dev/null | xargs file 2>/dev/null | grep text | while read file; do
+            filename=$(echo "$file" | cut -d: -f1)
+            if ! head -1 "$filename" | grep -q '^#!'; then
+              echo "❌ Executable file missing shebang: $filename"
+              exit 1
+            fi
+          done; then
+            echo "✅ File permissions are correct"
+          fi
+          echo "::endgroup::"
+
+      - name: Check for large files
+        run: |
+          echo "::group::Checking for large files"
+          if find . -type f -size +1M -not -path "./.git/*" -not -path "./logs/*" -not -path "./.cache/*" | head -1; then
+            echo "❌ Found large files (>1MB). Consider using Git LFS."
+            exit 1
+          else
+            echo "✅ No large files found"
+          fi
+          echo "::endgroup::"
+
+      - name: Check for merge conflicts
+        run: |
+          echo "::group::Checking for merge conflicts"
+          if grep -r "^<<<<<<< \|^=======$\|^>>>>>>> " . --exclude-dir=.git 2>/dev/null; then
+            echo "❌ Found merge conflict markers"
+            exit 1
+          else
+            echo "✅ No merge conflicts found"
+          fi
+          echo "::endgroup::"
+
+  # ==== PYTHON QUALITY ====
+  python-quality:
+    name: Python Quality
+    runs-on: ubuntu-latest
+    needs: quick-checks
+    if: needs.quick-checks.outputs.python-changed == 'true'
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Setup Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run Ruff linter
+        run: uv run ruff check scripts/ --output-format=github
+
+      - name: Run Ruff formatter
+        run: uv run ruff format scripts/ --check --diff
+
+      - name: Type check with mypy
+        run: |
+          uv add --dev mypy types-PyYAML types-requests
+          uv run mypy scripts/ --ignore-missing-imports --show-error-codes
+
+  # ==== PYTHON TESTS ====
+  python-tests:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    needs: [quick-checks, python-quality]
+    if: needs.quick-checks.outputs.python-changed == 'true' && !inputs.skip_tests
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Setup Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Install Ansible collections
+        run: uv run ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Test CLI functionality
+        run: |
+          echo "::group::CLI Import Tests"
+          uv run python -c "from scripts.cli import cli; print('✅ CLI imports successfully')"
+          uv run python -m scripts.cli --help
+          uv run python -m scripts.cli info
+          echo "::endgroup::"
+
+          echo "::group::CLI Command Tests"
+          uv run python -m scripts.cli infra --help
+          uv run python -m scripts.cli docs --help
+          uv run python -m scripts.cli status
+          echo "::endgroup::"
+
+      - name: Test configuration loading
+        run: |
+          uv run python -c "
+          from scripts.common.config import ConfigManager
+          from scripts.common.logging import InfraLogger
+          from pathlib import Path
+          logger = InfraLogger('test')
+          config = ConfigManager(Path.cwd(), logger)
+          print('✅ Configuration loading works')
+          "
+
+      - name: Run unit tests
+        run: |
+          mkdir -p tests
+          if find tests/ scripts/tests/ -name "test_*.py" 2>/dev/null | head -1; then
+            uv run pytest tests/ scripts/tests/ -v --tb=short
+          else
+            echo "ℹ️ No unit tests found"
+          fi
+
+  # ==== TERRAFORM QUALITY ====
+  terraform-quality:
+    name: Terraform Quality
+    runs-on: ubuntu-latest
+    needs: quick-checks
+    if: needs.quick-checks.outputs.terraform-changed == 'true'
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.5"
+
+      - name: Cache Terraform providers
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: ${{ runner.os }}-terraform-${{ hashFiles('terraform/**/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-
+
+      - name: Terraform Format Check
+        working-directory: terraform
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: Init TFLint
+        working-directory: terraform
+        run: tflint --init
+
+      - name: Run TFLint
+        working-directory: terraform
+        run: tflint --config=../.tflint.hcl --recursive
+
+  # ==== ANSIBLE QUALITY ====
+  ansible-quality:
+    name: Ansible Quality
+    runs-on: ubuntu-latest
+    needs: quick-checks
+    if: needs.quick-checks.outputs.ansible-changed == 'true'
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Setup Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Install Ansible collections
+        run: uv run ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Run ansible-lint
+        working-directory: ansible
+        run: uv run ansible-lint --show-relpath .
+
+      - name: Run YAML lint
+        run: uv run yamllint ansible/ configs/
+
+      - name: Ansible syntax check
+        working-directory: ansible
+        run: |
+          for playbook in playbooks/*.yml playbooks/*/*.yml; do
+            if [[ -f "$playbook" ]]; then
+              echo "Checking syntax: $playbook"
+              uv run ansible-playbook --syntax-check "$playbook"
+            fi
+          done
+
+  # ==== DOCS BUILD ====
+  docs-build:
+    name: Documentation Build
+    runs-on: ubuntu-latest
+    needs: quick-checks
+    if: needs.quick-checks.outputs.docs-changed == 'true'
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Setup Python
+        run: uv python install
+
+      - name: Install docs dependencies
+        run: uv sync --group docs
+
+      - name: Build documentation
+        run: uv run mkdocs build --strict
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-${{ github.sha }}
+          path: site/
+          retention-days: 7
+
+  # ==== INTEGRATION TESTS ====
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [python-quality, terraform-quality, ansible-quality]
+    if: |
+      always() && !cancelled() &&
+      (needs.python-quality.result == 'success' || needs.python-quality.result == 'skipped') &&
+      (needs.terraform-quality.result == 'success' || needs.terraform-quality.result == 'skipped') &&
+      (needs.ansible-quality.result == 'success' || needs.ansible-quality.result == 'skipped') &&
+      !inputs.skip_tests
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Setup Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Install Ansible collections
+        run: uv run ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Test Ansible inventory
+        working-directory: ansible
+        run: |
+          uv run python inventories/dynamic.py --list
+          uv run ansible-inventory --list
+
+      - name: Test CLI integration
+        run: |
+          echo "::group::CLI Status Tests"
+          uv run python -m scripts.cli status
+          echo "::endgroup::"
+
+          echo "::group::Config Validation"
+          if [[ -f configs/domains.yml && -f configs/environments.yml ]]; then
+            uv run python -c "
+            import yaml
+            with open('configs/domains.yml') as f:
+                domains = yaml.safe_load(f)
+            with open('configs/environments.yml') as f:
+                envs = yaml.safe_load(f)
+            print('✅ Configuration files are valid YAML')
+            "
+          else
+            echo "ℹ️ Config files not found, skipping validation"
+          fi
+          echo "::endgroup::"
+
+  # ==== QUALITY GATE ====
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [quick-checks, python-tests, integration-tests, docs-build]
+    if: always() && !cancelled()
+    timeout-minutes: 5
+    steps:
+      - name: Check quality gate
+        run: |
+          echo "::group::Quality Gate Results"
+
+          # Check if any required job failed
+          if [[ "${{ needs.python-tests.result }}" == "failure" ]] || \
+             [[ "${{ needs.integration-tests.result }}" == "failure" ]]; then
+            echo "❌ Quality gate failed - critical tests failed"
+            exit 1
+          fi
+
+          # Check if quick checks failed
+          if [[ "${{ needs.quick-checks.result }}" == "failure" ]]; then
+            echo "❌ Quality gate failed - basic checks failed"
+            exit 1
+          fi
+
+          echo "✅ Quality gate passed"
+          echo "::endgroup::"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 🎯 CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status | Duration |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Quick Checks | ${{ needs.quick-checks.result }} | - |" >> $GITHUB_STEP_SUMMARY
+          echo "| Python Tests | ${{ needs.python-tests.result }} | - |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | ${{ needs.integration-tests.result }} | - |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docs Build | ${{ needs.docs-build.result }} | - |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.quick-checks.outputs.python-changed }}" == "true" ]]; then
+            echo "🐍 **Python changes detected**" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [[ "${{ needs.quick-checks.outputs.terraform-changed }}" == "true" ]]; then
+            echo "🏗️ **Terraform changes detected**" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [[ "${{ needs.quick-checks.outputs.ansible-changed }}" == "true" ]]; then
+            echo "⚙️ **Ansible changes detected**" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [[ "${{ needs.quick-checks.outputs.docs-changed }}" == "true" ]]; then
+            echo "📚 **Documentation changes detected**" >> $GITHUB_STEP_SUMMARY
+          fi
