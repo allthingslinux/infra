@@ -288,9 +288,9 @@ For better terminal experience:
 export ATL_INFRA_DIR="$HOME/dev/allthingslinux/infra"
 alias atl-cd='cd $ATL_INFRA_DIR'
 
-# Auto-activate poetry shell when entering directory
+# Auto-activate uv environment when entering directory
 if [[ "$PWD" == "$ATL_INFRA_DIR"* ]]; then
-    poetry shell 2>/dev/null || true
+    source .venv/bin/activate 2>/dev/null || true
 fi
 ```
 

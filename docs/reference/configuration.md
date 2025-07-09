@@ -52,7 +52,7 @@ domains:
       type: "cx31"
       location: "ash"
       count: 1
-      image: "ubuntu-22.04"
+      image: "ubuntu-24.04"
       ssh_keys:
         - "default"
       labels:

@@ -5,6 +5,7 @@
 domains:
   atl_services:
     enabled: true
+    group: core
     required: true
     domain: "atl.services"
     server:
@@ -34,6 +35,7 @@ domains:
   # Development and hosting platform
   atl_dev:
     enabled: true
+    group: core
     domain: "atl.dev"
     port: 8081
     server:
@@ -57,6 +59,7 @@ domains:
   # Self-hosted applications
   atl_tools:
     enabled: true
+    group: apps
     domain: "atl.tools"
     port: 8081
     server:
@@ -81,6 +84,7 @@ domains:
   # Communication services
   atl_chat:
     enabled: true
+    group: apps
     domain: "atl.chat"
     port: 8082
     server:
@@ -106,6 +110,7 @@ domains:
   # Documentation platform
   atl_wiki:
     enabled: true
+    group: apps
     domain: "atl.wiki"
     port: 8083
     server:
@@ -136,6 +141,7 @@ domains:
 shared_infrastructure:
   database_cluster:
     enabled: true
+    group: core
     servers:
       - type: "cx31"
         location: "ash"
@@ -150,6 +156,7 @@ shared_infrastructure:
 
   backup:
     enabled: true
+    group: ops
     server:
       type: "cx21"
       location: "ash"
@@ -158,6 +165,17 @@ shared_infrastructure:
       - borg
       - rclone
       - restic
+
+  internal_dns:
+    enabled: true
+    group: core
+    domain: atl-dev-dns
+    server:
+      type: "cx21"
+      location: "ash"
+      count: 1
+    services:
+      - coredns
 
 # Global settings
 global:

@@ -35,10 +35,20 @@
 
     - name: Load domain configuration
       ansible.builtin.include_vars:
-        file: "{{ playbook_dir }}/../../configs/domains.yml"
+        file: "{{ playbook_dir }}/../../../configs/domains.yml"
         name: domains_config
       delegate_to: localhost
       run_once: true
+
+    - name: Define enabled_domains
+      ansible.builtin.set_fact:
+        enabled_domains: >-
+          {{
+            domains_config.domains | dict2items |
+            selectattr('value.enabled', 'equalto', true) |
+            rejectattr('value.external', 'defined') |
+            items2dict
+          }}
 
   tasks:
     # System Health Checks
@@ -50,6 +60,8 @@
             top -bn1 | grep "Cpu(s)" | awk '{print $2}' | sed 's/%us,//'
           register: cpu_usage
           changed_when: false
+          args:
+            executable: /bin/bash
 
         - name: Check memory usage
           ansible.builtin.shell: |
@@ -57,6 +69,8 @@
             free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}'
           register: memory_usage
           changed_when: false
+          args:
+            executable: /bin/bash
 
         - name: Check disk usage
           ansible.builtin.shell: |
@@ -64,6 +78,8 @@
             df -h / | tail -1 | awk '{print $5}' | sed 's/%//'
           register: disk_usage
           changed_when: false
+          args:
+            executable: /bin/bash
 
         - name: Check system load
           ansible.builtin.shell: |
@@ -71,6 +87,8 @@
             uptime | awk -F'load average:' '{print $2}' | awk '{print $1}' | sed 's/,//'
           register: system_load
           changed_when: false
+          args:
+            executable: /bin/bash
 
         - name: Evaluate system health
           ansible.builtin.set_fact:
@@ -214,6 +232,8 @@
             sshd -T | grep -E "(passwordauthentication|permitrootlogin|port)"
           register: ssh_config
           changed_when: false
+          args:
+            executable: /bin/bash
 
         - name: Check firewall status
           ansible.builtin.shell: |
@@ -222,6 +242,8 @@
           register: firewall_status
           changed_when: false
           failed_when: false
+          args:
+            executable: /bin/bash
 
         - name: Check fail2ban status
           ansible.builtin.systemd:
@@ -233,22 +255,24 @@
         - name: Check open ports
           ansible.builtin.shell: |
             set -o pipefail
-            netstat -tuln | grep LISTEN | awk '{print $4}' | sed 's/.*://' | sort -n | uniq
+            ss -tuln | grep LISTEN | awk '{print $5}' | sed 's/.*://' | sort -n | uniq
           register: open_ports
           changed_when: false
+          args:
+            executable: /bin/bash
 
         - name: Evaluate security health
           ansible.builtin.set_fact:
             security_health:
               ssh_config: "{{ ssh_config.stdout_lines | default([]) }}"
               firewall_status: "{{ firewall_status.stdout | default('inactive') }}"
-              fail2ban_status: "{{ 'RUNNING' if fail2ban_status.state == 'started' else 'STOPPED' }}"
+              fail2ban_status: "{{ 'RUNNING' if fail2ban_status.state is defined and fail2ban_status.state == 'started' else 'STOPPED' }}"
               open_ports: "{{ open_ports.stdout_lines | default([]) }}"
               status: >-
                 {{
                   'WARNING' if (
                     'active' not in firewall_status.stdout | default('') or
-                    fail2ban_status.state != 'started'
+                    (fail2ban_status.state is not defined or fail2ban_status.state != 'started')
                   ) else 'HEALTHY'
                 }}
 
@@ -266,6 +290,8 @@
           register: network_ping
           changed_when: false
           failed_when: false
+          args:
+            executable: /bin/bash
 
         - name: Check DNS resolution
           ansible.builtin.shell: |
@@ -274,6 +300,8 @@
           register: dns_resolution
           changed_when: false
           failed_when: false
+          args:
+            executable: /bin/bash
 
         - name: Check network interfaces
           ansible.builtin.shell: |
@@ -281,6 +309,8 @@
             ip addr show | grep "inet " | grep -v "127.0.0.1" | awk '{print $2}'
           register: network_interfaces
           changed_when: false
+          args:
+            executable: /bin/bash
 
         - name: Evaluate network health
           ansible.builtin.set_fact:
@@ -303,6 +333,34 @@
         - name: Update health results with network status
           ansible.builtin.set_fact:
             health_results: "{{ health_results | combine({'checks': health_results.checks | combine({'network': network_health})}) }}"
+
+    # Internal DNS Health Checks
+    - name: Internal DNS Health Checks
+      block:
+        - name: Check internal DNS records
+          ansible.builtin.command: "nslookup {{ item.value.domain }}"
+          register: internal_dns_results
+          loop: "{{ enabled_domains | dict2items }}"
+          loop_control:
+            loop_var: item
+          changed_when: false
+          failed_when: false
+
+        - name: Evaluate Internal DNS health
+          ansible.builtin.set_fact:
+            internal_dns_health:
+              failed_lookups: "{{ internal_dns_results.results | selectattr('rc', '!=', 0) | map(attribute='item.key') | list }}"
+              successful_lookups: "{{ internal_dns_results.results | selectattr('rc', '==', 0) | map(attribute='item.key') | list }}"
+              status: >-
+                {{
+                  'CRITICAL' if (
+                    (internal_dns_results.results | selectattr('rc', '!=', 0) | list | length) > 0
+                  ) else 'HEALTHY'
+                }}
+
+        - name: Update health results with internal DNS status
+          ansible.builtin.set_fact:
+            health_results: "{{ health_results | combine({'checks': health_results.checks | combine({'internal_dns': internal_dns_health})}) }}"
 
     # Monitoring Health Checks (only on atl.services)
     - name: Monitoring Health Checks
@@ -374,16 +432,16 @@
       ansible.builtin.set_fact:
         recommendations: |
           {% set recs = [] %}
-          {% if health_results.checks.system.cpu_usage > 80 %}
+          {% if health_results.checks.system.cpu_usage | float > 80 %}
           {% set _ = recs.append("High CPU usage detected - investigate running processes") %}
           {% endif %}
-          {% if health_results.checks.system.memory_usage > 85 %}
+          {% if health_results.checks.system.memory_usage | float > 85 %}
           {% set _ = recs.append("High memory usage detected - consider adding more RAM or optimizing applications") %}
           {% endif %}
-          {% if health_results.checks.system.disk_usage > 80 %}
+          {% if health_results.checks.system.disk_usage | int > 80 %}
           {% set _ = recs.append("High disk usage detected - clean up old files or expand storage") %}
           {% endif %}
-          {% if health_results.checks.service.http_response_time > 5 %}
+          {% if health_results.checks.service.http_response_time | float > 5 %}
           {% set _ = recs.append("Slow HTTP response time - investigate application performance") %}
           {% endif %}
           {% if health_results.checks.security.firewall_status != 'active' %}
@@ -397,6 +455,13 @@
     - name: Update health results with recommendations
       ansible.builtin.set_fact:
         health_results: "{{ health_results | combine({'recommendations': recommendations}) }}"
+
+    - name: Ensure health check log directory exists
+      ansible.builtin.file:
+        path: "/var/log/atl"
+        state: directory
+        mode: "0755"
+      become: true
 
     - name: Save health check results
       ansible.builtin.copy:

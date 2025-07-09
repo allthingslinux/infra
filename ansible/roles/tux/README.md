@@ -7,7 +7,7 @@ This role deploys the Tux Discord bot as a Docker Compose service on the `atl_to
 - Ensures `/opt/tux-bot` exists
 - Deploys `docker-compose.yml`, `.env`, and `settings.yml` from Ansible templates
 - Runs the bot using Docker Compose
-- No Poetry or Python required on the host
+- No Python dependency management required on the host
 
 ## Usage
 

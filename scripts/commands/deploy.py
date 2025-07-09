@@ -176,7 +176,7 @@ class DeploymentManager:
 def cli(ctx, environment, verbose, dry_run):
     """All Things Linux Infrastructure Deployment
 
-    Unified deployment interface for Terraform + Ansible with Poetry integration
+    Unified deployment interface for Terraform + Ansible with uv integration
     """
     # Setup context
     ctx.ensure_object(dict)
@@ -193,7 +193,7 @@ def cli(ctx, environment, verbose, dry_run):
     # Show banner
     logger.banner(
         "All Things Linux Infrastructure Deployment",
-        "Unified Terraform + Ansible with Poetry",
+        "Unified Terraform + Ansible with uv",
     )
 
     # Initialize deployment manager

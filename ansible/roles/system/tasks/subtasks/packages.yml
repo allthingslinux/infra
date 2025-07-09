@@ -8,9 +8,19 @@
   when: ansible_os_family == "Debian"
 
 - name: subtasks | packages | Install system packages
-  ansible.builtin.package:
-    name: "{{ system_packages }}"
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+      - rsync
+      - acl
+      - git
+      - htop
     state: present
+    update_cache: true
 
 - name: subtasks | packages | Remove unnecessary packages
   ansible.builtin.apt:

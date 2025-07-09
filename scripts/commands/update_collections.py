@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Update Ansible collections using Poetry
+Update Ansible collections using uv
 Python version of the bash update-collections.sh script
 """
 
@@ -30,9 +30,9 @@ class CollectionManager:
         """Check if prerequisites are met"""
         self.logger.info("Checking prerequisites...")
 
-        # Check Poetry environment
-        if not os.getenv("POETRY_ACTIVE"):
-            self.logger.error("Not running in Poetry environment")
+        # Check uv environment
+        if not os.getenv("VIRTUAL_ENV"):
+            self.logger.error("Not running in uv virtual environment")
             return False
 
         # Check collections requirements file
@@ -187,9 +187,9 @@ class CollectionManager:
 @click.option("--no-upgrade", is_flag=True, help="Skip upgrading existing collections")
 @click.option("--verify", is_flag=True, help="Verify collections after update")
 def cli(no_upgrade, verify):
-    """Update Ansible collections using Poetry
+    """Update Ansible collections using uv
 
-    This script ensures collections are updated in the correct Poetry environment
+    This script ensures collections are updated in the correct uv environment
     """
     # Initialize
     project_root = Path(__file__).parent.parent
@@ -198,7 +198,7 @@ def cli(no_upgrade, verify):
     # Show banner
     logger.banner(
         "All Things Linux Collection Update",
-        "Updating Ansible collections in Poetry environment",
+        "Updating Ansible collections in uv environment",
     )
 
     # Initialize collection manager

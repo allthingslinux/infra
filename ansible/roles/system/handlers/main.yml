@@ -6,15 +6,9 @@
     name: "{{ 'ssh' if ansible_os_family == 'Debian' else 'sshd' }}"
     state: restarted
 
-- name: Restart networking
-  ansible.builtin.service:
-    name: networking
-    state: restarted
-  when: ansible_os_family == "Debian"
-
 - name: Restart ntp
   ansible.builtin.service:
-    name: "{{ 'ntp' if ansible_os_family == 'Debian' else 'ntpd' }}"
+    name: "systemd-timesyncd"
     state: restarted
 
 - name: Reload sysctl
@@ -25,3 +19,13 @@
   ansible.builtin.command: logrotate -d /etc/logrotate.conf
   changed_when: false
   failed_when: false
+
+- name: Restart systemd-resolved
+  ansible.builtin.service:
+    name: systemd-resolved
+    state: restarted
+
+- name: Restart cron
+  ansible.builtin.service:
+    name: cron
+    state: restarted

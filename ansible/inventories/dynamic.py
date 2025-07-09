@@ -10,6 +10,7 @@ import yaml
 import argparse
 import subprocess
 from pathlib import Path
+import os
 
 
 def load_domains_config():
@@ -68,10 +69,91 @@ def load_terraform_inventory():
         return None
 
 
+def load_vagrant_inventory():
+    """Load inventory from Vagrant if available"""
+    try:
+        # Check if vagrant is installed
+        subprocess.run(
+            ["vagrant", "--version"], capture_output=True, check=True, text=True
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+
+    try:
+        # Get status of all machines
+        status_result = subprocess.run(
+            ["vagrant", "status", "--machine-readable"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=30,
+            env=dict(os.environ, VAGRANT_GROUP="all"),
+        )
+
+        running_vms = set()
+        for line in status_result.stdout.strip().split("\n"):
+            parts = line.split(",")
+            if len(parts) >= 4 and parts[2] == "state" and parts[3] == "running":
+                running_vms.add(parts[1])
+
+        if not running_vms:
+            return None
+
+        # Get ssh-config for running machines
+        ssh_config_result = subprocess.run(
+            ["vagrant", "ssh-config"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=30,
+            env=dict(os.environ, VAGRANT_GROUP="all"),
+        )
+
+        vagrant_inventory = {}
+        current_host = None
+        for line in ssh_config_result.stdout.strip().split("\n"):
+            line = line.strip()
+            if line.startswith("Host "):
+                current_host = line.split(" ")[1]
+                if current_host in running_vms:
+                    vagrant_inventory[current_host] = {}
+                else:
+                    current_host = None  # This is not a running vm
+            elif current_host and line and " " in line:
+                key, value = line.split(" ", 1)
+                vagrant_inventory[current_host][key.lower()] = value
+
+        # Remap to what ansible expects
+        for host, config in vagrant_inventory.items():
+            if "hostname" in config:
+                vagrant_inventory[host]["ansible_host"] = config["hostname"]
+            if "user" in config:
+                vagrant_inventory[host]["ansible_user"] = config["user"]
+            if "identityfile" in config:
+                vagrant_inventory[host]["ansible_ssh_private_key_file"] = config[
+                    "identityfile"
+                ].strip('"')
+            if "port" in config:
+                vagrant_inventory[host]["ansible_port"] = config["port"]
+            # Force the python interpreter for vagrant hosts
+            vagrant_inventory[host]["ansible_python_interpreter"] = "/usr/bin/python3"
+
+        return vagrant_inventory
+
+    except (
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+    ) as e:
+        print(f"DEBUG: Could not load Vagrant inventory: {e}", file=sys.stderr)
+        return None
+
+
 def generate_inventory():
-    """Generate Ansible inventory from domains.yml and integrate with Terraform outputs"""
+    """Generate Ansible inventory from domains.yml and integrate with Terraform and Vagrant"""
     config = load_domains_config()
     terraform_inventory = load_terraform_inventory()
+    vagrant_inventory = load_vagrant_inventory()
 
     inventory = {"_meta": {"hostvars": {}}, "all": {"children": []}}
 
@@ -79,133 +161,70 @@ def generate_inventory():
     environment = config.get("global", {}).get("environment", "production")
     project_name = config.get("global", {}).get("project_name", "allthingslinux")
 
-    # Process enabled domains
-    enabled_domains = {
-        name: domain_config
-        for name, domain_config in config.get("domains", {}).items()
-        if domain_config.get("enabled", False)
-        and not domain_config.get("external", False)
-    }
+    inventory_source = None
+    if terraform_inventory:
+        inventory_source = "terraform"
+    elif vagrant_inventory:
+        inventory_source = "vagrant"
 
-    # Process enabled shared infrastructure
-    enabled_shared = {
-        name: infra_config
-        for name, infra_config in config.get("shared_infrastructure", {}).items()
-        if infra_config.get("enabled", False)
-    }
+    all_items = config.get("domains", {}) | config.get("shared_infrastructure", {})
 
-    # Create domain-based groups
-    for domain_key, domain_config in enabled_domains.items():
-        server_name = f"{project_name}-{domain_key}-{environment}"
+    for name, item in all_items.items():
+        if not item.get("enabled", False) or item.get("external"):
+            continue
 
-        # Create group for this domain
-        inventory[domain_key] = {"hosts": [server_name]}
-        inventory["all"]["children"].append(domain_key)
-
-        # Start with base host variables from domains.yml
-        host_vars = {
-            "ansible_user": config.get("global", {}).get("default_user", "ansible"),
-            "server_role": domain_key,
-            "domain": domain_config.get("domain"),
-            "services": domain_config.get("services", []),
-            "deployment_environment": environment,  # Renamed to avoid Ansible reserved word
-            "project": project_name,
-            "server_type": domain_config.get("server", {}).get("type", "cx31"),
-            "location": domain_config.get("server", {}).get("location", "ash"),
-            "monitoring_enabled": domain_config.get("monitoring", {}).get(
-                "enabled", True
-            ),
-            "backup_enabled": config.get("global", {}).get("backup_enabled", True),
-            # Add subdomains if they exist
-            "subdomains": domain_config.get("subdomains", []),
-            # Add network configuration
-            "network_subnet": domain_config.get("network", {}).get(
-                "subnet", "172.20.0.0/16"
-            ),
-            # Add specific features
-            **{
-                k: v
-                for k, v in domain_config.items()
-                if k
-                not in [
-                    "enabled",
-                    "domain",
-                    "server",
-                    "services",
-                    "monitoring",
-                    "network",
-                    "subdomains",
-                ]
-            },
-        }
-
-        # Override with Terraform inventory data if available (especially ansible_host)
-        if terraform_inventory and domain_key in terraform_inventory.get("all", {}).get(
-            "children", {}
-        ):
-            tf_host_data = (
-                terraform_inventory["all"]["children"][domain_key]
-                .get("hosts", {})
-                .get(server_name, {})
+        hosts = []
+        # Logic from Vagrantfile
+        if "server" in item:
+            hostname = (
+                item.get("domain")
+                or (item.get("services") and item["services"][0])
+                or name
             )
-            if tf_host_data:
-                # Terraform provides the critical ansible_host (IP address)
-                host_vars.update(tf_host_data)
-                print(
-                    f"DEBUG: Using Terraform IP for {server_name}: {tf_host_data.get('ansible_host')}",
-                    file=sys.stderr,
-                )
+            count = item.get("server", {}).get("count", 1)
+            if count > 1:
+                for i in range(count):
+                    hosts.append(f"{hostname.replace('_', '-')}-{i + 1}")
+            else:
+                hosts.append(hostname.replace("_", "-"))
+        elif "servers" in item:
+            for server in item.get("servers", []):
+                role = server.get("role")
+                if role:
+                    hosts.append(f"{name.replace('_', '-')}-{role}")
 
-        inventory["_meta"]["hostvars"][server_name] = host_vars
+        if not hosts:
+            continue
 
-    # Create shared infrastructure groups
-    for infra_key, infra_config in enabled_shared.items():
-        server_name = f"{project_name}-{infra_key}-{environment}"
+        inventory[name] = {"hosts": hosts}
+        if name not in inventory["all"]["children"]:
+            inventory["all"]["children"].append(name)
 
-        # Create group for this shared infrastructure
-        inventory[infra_key] = {"hosts": [server_name]}
-        inventory["all"]["children"].append(infra_key)
+        for server_name in hosts:
+            host_vars = {
+                "ansible_user": config.get("global", {}).get("default_user", "ansible"),
+                "server_role": name,
+                "deployment_environment": environment,
+                "project": project_name,
+            }
+            host_vars.update(item)
 
-        # Start with base host variables from domains.yml
-        host_vars = {
-            "ansible_user": config.get("global", {}).get("default_user", "ansible"),
-            "server_role": infra_key,
-            "services": infra_config.get("services", []),
-            "deployment_environment": environment,  # Renamed to avoid Ansible reserved word
-            "project": project_name,
-            "server_type": infra_config.get("server", {}).get("type", "cx31"),
-            "location": infra_config.get("server", {}).get("location", "ash"),
-            "shared_infrastructure": True,
-            "monitoring_enabled": True,
-            "backup_enabled": True,
-            # Add domain if specified
-            "domain": infra_config.get("domain", f"{infra_key}.{project_name}.local"),
-            # Add any additional configuration
-            **{
-                k: v
-                for k, v in infra_config.items()
-                if k not in ["enabled", "server", "services", "domain"]
-            },
-        }
+            if (
+                inventory_source == "vagrant"
+                and vagrant_inventory
+                and server_name in vagrant_inventory
+            ):
+                host_vars.update(vagrant_inventory[server_name])
+            elif inventory_source == "terraform" and terraform_inventory:
+                children = terraform_inventory.get("all", {}).get("children", {})
+                if children and name in children:
+                    tf_host_data = (
+                        children.get(name, {}).get("hosts", {}).get(server_name, {})
+                    )
+                    if tf_host_data:
+                        host_vars.update(tf_host_data)
 
-        # Override with Terraform inventory data if available (especially ansible_host)
-        if terraform_inventory and infra_key in terraform_inventory.get("all", {}).get(
-            "children", {}
-        ):
-            tf_host_data = (
-                terraform_inventory["all"]["children"][infra_key]
-                .get("hosts", {})
-                .get(server_name, {})
-            )
-            if tf_host_data:
-                # Terraform provides the critical ansible_host (IP address)
-                host_vars.update(tf_host_data)
-                print(
-                    f"DEBUG: Using Terraform IP for {server_name}: {tf_host_data.get('ansible_host')}",
-                    file=sys.stderr,
-                )
-
-        inventory["_meta"]["hostvars"][server_name] = host_vars
+            inventory["_meta"]["hostvars"][server_name] = host_vars
 
     # Create service-based groups for easier targeting
     service_groups = {}
@@ -219,13 +238,14 @@ def generate_inventory():
     # Add service groups to inventory
     for group_name, group_data in service_groups.items():
         inventory[group_name] = group_data
-        inventory["all"]["children"].append(group_name)
+        if group_name not in inventory["all"]["children"]:
+            inventory["all"]["children"].append(group_name)
 
     # Create environment-based groups
-    inventory[f"env_{environment}"] = {
-        "hosts": list(inventory["_meta"]["hostvars"].keys())
-    }
-    inventory["all"]["children"].append(f"env_{environment}")
+    env_group_name = f"env_{environment}"
+    inventory[env_group_name] = {"hosts": list(inventory["_meta"]["hostvars"].keys())}
+    if env_group_name not in inventory["all"]["children"]:
+        inventory["all"]["children"].append(env_group_name)
 
     # Create role-based groups
     role_groups = {}
@@ -239,7 +259,8 @@ def generate_inventory():
     # Add role groups to inventory
     for group_name, group_data in role_groups.items():
         inventory[group_name] = group_data
-        inventory["all"]["children"].append(group_name)
+        if group_name not in inventory["all"]["children"]:
+            inventory["all"]["children"].append(group_name)
 
     return inventory
 

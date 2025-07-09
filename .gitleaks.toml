@@ -29,7 +29,7 @@ paths = [
   '''.*\.sample\.yml''',
 
   # Lock files and generated files
-  '''poetry\.lock''',
+  '''uv\.lock''',
   '''go\.sum''',
   '''package-lock\.json''',
   '''yarn\.lock''',
@@ -53,7 +53,7 @@ regexes = [
 
   # Version numbers and common IDs that look like secrets
   '''^v?\d+\.\d+\.\d+''',
-  '''^[0-9a-f]{7,8}$''', # Short git hashes
+  '''^[0-9a-f]{7,8}$''',  # Short git hashes
 ]
 
 # Common stop words to ignore
@@ -76,7 +76,7 @@ stopwords = [
   "true",
   "false",
   "null",
-  "none"
+  "none",
 ]
 
 [[allowlists]]

@@ -218,3 +218,25 @@ logs/*.txt
 .pytest_cache/
 test-results/
 molecule/**/molecule_*
+
+# Ansible
+.ansible/
+galaxy_cache/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# Misc
+*.log
+tmp/
+
+# Vagrant
+.vagrant/

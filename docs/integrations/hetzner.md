@@ -8,7 +8,7 @@ Our infrastructure setup uses:
 
 - **Terraform** for provisioning Hetzner Cloud resources (servers, networks, load balancers)
 - **Ansible** for configuring and managing the provisioned infrastructure
-- **Poetry** for dependency management
+- **uv** for dependency management
 - **Environment isolation** for development, staging, and production
 
 ## Prerequisites
@@ -112,8 +112,8 @@ terraform/
 # 1. Set up your environment
 export HCLOUD_TOKEN="your-token-here"
 
-# 2. Ensure Poetry environment is active
-poetry shell  # or use poetry run for each command
+# 2. Ensure uv environment is active
+source .venv/bin/activate  # or use uv run for each command
 
 # 3. Plan development infrastructure
 ./scripts/terraform-deploy.sh -e development
@@ -130,7 +130,7 @@ poetry shell  # or use poetry run for each command
 #### Planning Changes
 
 ```bash
-# Plan changes for any environment (Poetry will auto-activate)
+# Plan changes for any environment (uv will auto-activate)
 ./scripts/terraform-deploy.sh -e development
 ./scripts/terraform-deploy.sh -e staging
 ./scripts/terraform-deploy.sh -e production
@@ -281,14 +281,14 @@ The Terraform deployment automatically generates Ansible inventory:
 ### Running Ansible Manually
 
 ```bash
-# Using the generated inventory (with Poetry)
-poetry run ansible-playbook \
+# Using the generated inventory (with uv)
+uv run ansible-playbook \
   -i inventories/development/terraform_inventory.json \
   -e "environment=development" \
   playbooks/dynamic-deploy.yml
 
 # Using the dynamic inventory script
-poetry run ansible-playbook \
+uv run ansible-playbook \
   -i inventories/dynamic.py \
   -e "environment=development" \
   playbooks/dynamic-deploy.yml

@@ -18,19 +18,19 @@ This guide will help you install all dependencies and tools needed for the All T
 
 ## 🐍 Python Environment Setup
 
-### Install Poetry (Recommended)
+### Install uv (Recommended)
 
-Poetry provides dependency management, virtual environments, and reproducible builds:
+uv provides fast dependency management, virtual environments, and reproducible builds:
 
 ```bash
-# Install Poetry
-curl -sSL https://install.python-poetry.org | python3 -
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Add to PATH (add to your shell profile)
 export PATH="$HOME/.local/bin:$PATH"
 
 # Verify installation
-poetry --version
+uv --version
 ```
 
 ### Alternative: pip + venv
@@ -49,7 +49,7 @@ pip install --upgrade pip
 
 ## 📦 Install Dependencies
 
-### Method 1: Poetry (Recommended)
+### Method 1: uv (Recommended)
 
 ```bash
 # Clone the repository
@@ -57,10 +57,10 @@ git clone https://github.com/allthingslinux/infra.git
 cd infra
 
 # Install all dependencies
-poetry install
+uv sync
 
 # Activate the environment
-poetry shell
+source .venv/bin/activate
 ```
 
 ### Method 2: pip Requirements
@@ -87,7 +87,7 @@ ansible-galaxy collection list
 
 ### Development Tools
 
-Poetry automatically installs these, but for manual setup:
+uv automatically installs these, but for manual setup:
 
 ```bash
 # Code quality tools
@@ -209,11 +209,11 @@ pip install ansible-language-server
 # Verify Python version
 python --version  # Should be 3.10+
 
-# Check Poetry environment
-poetry env info
+# Check uv environment
+uv run python --version
 
 # List installed packages
-poetry show
+uv pip list
 ```
 
 ### Check Ansible
@@ -304,10 +304,10 @@ wsl --install
 
 ### Common Issues
 
-#### Poetry not found
+#### uv not found
 
 ```bash
-# Add Poetry to PATH
+# Add uv to PATH
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```
@@ -315,8 +315,9 @@ source ~/.bashrc
 #### Python version conflicts
 
 ```bash
-# Use specific Python version with Poetry
-poetry env use python3.10
+# Use specific Python version with uv
+uv python install 3.10
+uv python pin 3.10
 
 # Or with pyenv
 pyenv install 3.10.12
@@ -354,7 +355,7 @@ After successful installation:
 
 ## 📚 Additional Resources
 
-- [Poetry Documentation](https://python-poetry.org/docs/)
+- [uv Documentation](https://docs.astral.sh/uv/)
 - [Ansible Installation Guide](https://docs.ansible.com/ansible/latest/installation_guide/)
 - [Docker Installation Guide](https://docs.docker.com/get-docker/)
 - [Pre-commit Documentation](https://pre-commit.com/)

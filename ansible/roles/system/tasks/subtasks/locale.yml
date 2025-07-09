@@ -7,42 +7,32 @@
     state: present
   when: ansible_os_family == "Debian"
 
-- name: subtasks | locale | Generate locale for system_locale
-  community.general.locale_gen:
-    name: "{{ system_locale }}"
-    state: present
-  when: ansible_os_family == "Debian"
+- name: subtasks | locale | Set locale_list fact
+  ansible.builtin.set_fact:
+    locale_list: "{{ ([system_locale] + (system_language | default('')).split(':')) | unique | list }}"
+  when: system_language is defined and system_language
 
-- name: subtasks | locale | Generate locale for system_language
+- name: subtasks | locale | Generate required locales
   community.general.locale_gen:
-    name: "{{ system_language }}"
+    name: "{{ item }}"
     state: present
-  when: ansible_os_family == "Debian" and system_language is defined and system_language != system_locale
+  loop: "{{ ([system_locale] + (system_language | default('')).split(':')) | unique | list }}"
+  when: ansible_os_family == "Debian"
 
 - name: subtasks | locale | Get current locale and language configuration
   ansible.builtin.command: localectl status
   register: locale_status
   changed_when: false
 
-- name: subtasks | locale | Parse current LANG from locale configuration
-  ansible.builtin.set_fact:
-    current_locale_lang: "{{ locale_status.stdout | regex_search('LANG=([^\n\\s]+)', '\\1') | first | default('') }}"
-
-- name: subtasks | locale | Parse current LANGUAGE from locale configuration
-  ansible.builtin.set_fact:
-    current_locale_language: >-
-      {{ locale_status.stdout | regex_search('LANGUAGE=([^\n\\s]+)', '\\1') |
-         first | default(current_locale_lang) }}
-
 - name: subtasks | locale | Configure locale using localectl
   ansible.builtin.command: >
     localectl set-locale
     LANG={{ system_locale }}
     {% if system_language is defined %}LANGUAGE={{ system_language }}{% endif %}
-  changed_when: >
-    (current_locale_lang != system_locale) or
-    (system_language is defined and current_locale_language != system_language)
   become: true
+  when:
+    - "'LANG=#{system_locale}' not in locale_status.stdout"
+    - system_language is not defined or "'LANGUAGE=#{system_language}' not in locale_status.stdout"
 
 - name: subtasks | locale | Verify locale is set correctly
   ansible.builtin.command: localectl status

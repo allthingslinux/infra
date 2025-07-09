@@ -37,7 +37,7 @@ class LintManager:
         # Check ansible-lint
         if not self._command_exists("ansible-lint"):
             self.logger.error("ansible-lint is not installed. Please install it first.")
-            self.logger.info("Run: poetry install")
+            self.logger.info("Run: uv sync")
             return False
 
         # Get ansible-lint version
@@ -71,7 +71,8 @@ class LintManager:
 
         # Determine target paths
         target_paths = self._get_target_paths(target)
-        if not target_paths:
+        if not target_paths and target != "all":
+            self.logger.error(f"Could not determine paths for target '{target}'")
             return False
 
         # Build command
@@ -337,9 +338,10 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
             old_report.unlink()
 
     def _get_target_paths(self, target: str) -> List[str]:
-        """Get target paths based on target type"""
+        """Return a list of paths for the specified target"""
         if target == "all":
-            return ["ansible/playbooks/", "ansible/roles/", "ansible/tasks/"]
+            # Let ansible-lint discover all files from the project root
+            return []
         elif target == "playbooks":
             return ["ansible/playbooks/"]
         elif target == "inventories":

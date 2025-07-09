@@ -335,7 +335,7 @@ def status():
         "Ansible": "ansible",
         "Ansible Playbook": "ansible-playbook",
         "Docker": "docker",
-        "Poetry": "poetry",
+        "uv": "uv",
     }
 
     console.print("[bold]Tool Availability:[/bold]")

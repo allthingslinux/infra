@@ -5,7 +5,7 @@
   ansible.builtin.include_tasks: subtasks/packages.yml
   tags:
     - system
-    - packages
+    - system_packages
 
 - name: system | Configure hostname and hosts file
   ansible.builtin.include_tasks: subtasks/hostname.yml
@@ -44,18 +44,22 @@
   ansible.builtin.include_tasks: subtasks/environment.yml
   tags:
     - system
-    - environment
+    - system_environment
 
 - name: system | Configure cron jobs
   ansible.builtin.include_tasks: subtasks/cron.yml
-  when: system_cron_jobs | length > 0
+  when: system_cron_jobs is defined and system_cron_jobs
   tags:
     - system
     - cron
 
 - name: system | Configure log rotation
   ansible.builtin.include_tasks: subtasks/logrotate.yml
-  when: system_logrotate_configs | length > 0
+  when: system_logrotate_config is defined and system_logrotate_config
   tags:
     - system
     - logrotate
+
+- name: system | Set internal DNS resolver
+  ansible.builtin.include_tasks: subtasks/set_dns_resolver.yml
+  when: internal_dns_ip is defined and internal_dns_ip

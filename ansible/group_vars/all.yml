@@ -90,3 +90,6 @@ all_proxy_rules: >-
 #   - domain: "custom.example.com"
 #     host: "custom-host"
 #     port: 1234
+
+ansible_user: vagrant
+ansible_python_interpreter: /usr/bin/python3

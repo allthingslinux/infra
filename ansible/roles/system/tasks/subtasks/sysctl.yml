@@ -9,7 +9,7 @@
     reload: true
     sysctl_file: /etc/sysctl.d/99-atl_custom.conf
   loop: "{{ system_sysctl_config | dict2items }}"
-  notify: reload sysctl
+  notify: Reload sysctl
 
 - name: subtasks | sysctl | Verify kernel parameters are applied
   ansible.builtin.command: sysctl "{{ item.key }}"

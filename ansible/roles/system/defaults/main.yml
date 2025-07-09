@@ -6,11 +6,11 @@ system_timezone: "UTC"
 
 # Locale configuration
 system_locale: "en_US.UTF-8"
-system_language: "en_US:en"
+system_language: "en_US.UTF-8:en_US.UTF-8"
 
 # Hostname configuration
 system_hostname: "{{ inventory_hostname }}"
-system_domain: "{{ domain_base | default('') }}"
+system_domain: ""
 
 # Network configuration
 system_hosts_entries:
@@ -86,5 +86,4 @@ system_packages:
   - tree
   - unzip
   - rsync
-  - ntp
   - ca-certificates

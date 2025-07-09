@@ -24,10 +24,8 @@ variable "public_key_path" {
 variable "server_image" {
   description = "Server image to use for all servers"
   type        = string
-  default     = "ubuntu-22.04"
+  default     = "ubuntu-24.04"
 }
-
-
 
 variable "network_cidr" {
   description = "CIDR block for the main network"
@@ -82,31 +80,17 @@ variable "cloudflare_account_id" {
   sensitive   = true
 }
 
-
-
 variable "dns_ttl" {
   description = "DNS TTL for records"
   type        = number
   default     = 300
 }
 
-
-
-
-
-
-
-
-
-
-
 variable "enable_api_caching" {
   description = "Enable API endpoint caching"
   type        = bool
   default     = false
 }
-
-
 
 variable "enable_origin_ca" {
   description = "Enable Cloudflare Origin CA certificate"
@@ -122,3 +106,9 @@ variable "csr_content" {
 
 # Note: Domain configurations are now defined in domains.yml
 # This provides a single source of truth for all domain infrastructure
+
+variable "server_locations" {
+  description = "List of server locations"
+  type        = list(string)
+  default     = []
+}

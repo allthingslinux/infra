@@ -108,9 +108,9 @@ install_precommit() {
     if command -v pip3 >/dev/null 2>&1; then
         pip3 install -r requirements.txt
     else
-        # Try Poetry first, fall back to pip
-        if command -v poetry >/dev/null 2>&1; then
-            poetry install --with dev
+        # Try uv first, fall back to pip
+        if command -v uv >/dev/null 2>&1; then
+            uv sync
         else
             pip install -r requirements.txt
         fi

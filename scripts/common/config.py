@@ -31,9 +31,9 @@ class ConfigManager:
             self.logger.error(f"domains.yml not found at {self.domains_file}")
             return False
 
-        # Check Poetry environment
-        if not os.getenv("POETRY_ACTIVE"):
-            self.logger.error("Not running in Poetry environment")
+        # Check uv environment
+        if not os.getenv("VIRTUAL_ENV"):
+            self.logger.error("Not running in uv virtual environment")
             return False
 
         # Check ansible-playbook

@@ -28,11 +28,20 @@ atl = "scripts.cli:cli"
 Repository = "https://github.com/allthingslinux/infra"
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.7.19,<0.8"]
+build-backend = "uv_build"
+
+# Configure uv build backend for our project structure
+[tool.uv.build-backend]
+module-name = "scripts"
+module-root = ""
 
 [dependency-groups]
-dev = ["ansible-lint>=25.6.1", "ruff>=0.12.2"]
+dev = [
+    "ansible-lint>=25.6.1",
+ "pre-commit>=4.2.0",
+ "ruff>=0.12.2",
+]
 docs = [
     "cairosvg>=2.8.2",
     "mkdocs>=1.6.1",
@@ -57,9 +66,20 @@ default-groups = ["dev"]
 managed = true
 # Enable package mode for CLI entry point installation
 package = true
-
-[tool.setuptools.packages.find]
-include = ["scripts*"]
+# Performance optimizations
+concurrent-builds = 4
+concurrent-downloads = 8
+concurrent-installs = 4
+# Better development experience
+compile-bytecode = false      # Keep false for faster dev iterations
+python-preference = "managed" # Prefer uv-managed Python installations
+# Caching optimization - invalidate cache when key files change
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "uv.lock" },
+    { file = "ansible.cfg" },
+    { file = "configs/domains.yml" },
+]
 
 [tool.ruff]
 line-length = 88

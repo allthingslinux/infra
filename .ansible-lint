@@ -102,7 +102,7 @@ kinds:
 use_default_rules: true
 
 # Enable offline mode for CI/CD environments
-offline: true
+offline: false
 
 # Enable strict mode for production quality
 strict: true

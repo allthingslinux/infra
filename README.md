@@ -46,7 +46,7 @@ The `atl` CLI provides a unified interface for all infrastructure operations:
 
 ```bash
 # Install dependencies
-poetry install
+uv sync
 
 # Quick operations
 atl plan                    # Plan infrastructure changes
@@ -70,7 +70,7 @@ atl <command> --help       # Detailed help for any command
 
 ### Prerequisites
 
-- **Python 3.11+** with Poetry for dependency management
+- **Python 3.11+** with uv for dependency management
 - **Terraform** for infrastructure provisioning
 - **Ansible** for configuration management
 - **Hetzner Cloud** account and API token
@@ -85,8 +85,8 @@ atl <command> --help       # Detailed help for any command
    cd infra
 
    # Install dependencies
-   poetry install
-   poetry run ansible-galaxy collection install -r ansible/collections/requirements.yml
+   uv sync
+   uv run ansible-galaxy collection install -r ansible/collections/requirements.yml
    ```
 
 2. **Configure secrets:**
@@ -186,8 +186,8 @@ infra/                           # 🏗️ Infrastructure Monorepo
 │   └── docs.yml                 # Documentation deployment
 │
 └── 🐍 Python Environment        # Development Environment
-    ├── pyproject.toml            # Poetry dependencies & CLI tools
-    ├── poetry.lock               # Locked dependencies
+    ├── pyproject.toml            # uv dependencies & CLI tools
+├── uv.lock                   # Locked dependencies
     └── mise.toml                 # Development environment
 ```
 
@@ -285,7 +285,7 @@ Comprehensive team access management:
 
 ```bash
 # Install development dependencies
-poetry install
+uv sync
 
 # Set up pre-commit hooks
 ./scripts/setup/setup-hooks.sh
@@ -350,3 +350,35 @@ This infrastructure code is licensed under the MIT License. See [LICENSE](LICENS
 *Empowering the Linux ecosystem through education, collaboration, and open infrastructure*
 
 </div>
+
+### Development Environment
+
+For local development and testing of Ansible roles, please refer to the [Local Development Environment Guide](./docs/guides/development-environment.md).
+
+### Production Deployment
+
+> **Warning:** The following commands will provision and modify live production infrastructure.
+
+1. **Initialize Terraform:**
+
+    ```sh
+    cd terraform/environments/production
+    terraform init
+    ```
+
+2. **Apply Terraform Plan:**
+
+    ```sh
+    terraform apply
+    ```
+
+3. **Run Ansible Playbook:**
+    Once infrastructure is provisioned, apply the configuration with Ansible:
+
+    ```sh
+    ansible-playbook -i inventories/production site.yml
+    ```
+
+## 🤝 Contributing
+
+Please see `CONTRIBUTING.md` for details on how to contribute to this project.

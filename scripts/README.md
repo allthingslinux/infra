@@ -20,7 +20,7 @@ scripts/
 ├── setup/                # Environment setup scripts
 │   ├── setup-cloudflare.sh  # Cloudflare CLI setup
 │   ├── setup-hooks.sh       # Git hooks installation
-│   ├── setup-poetry.sh      # Poetry and dependency setup
+│   ├── setup-uv.sh          # uv and dependency setup
 │   └── setup-terraform.sh   # Terraform installation
 └── README.md             # This file
 ```

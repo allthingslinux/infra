@@ -11,7 +11,7 @@ Our deployment system uses a **single unified script** that handles both Terrafo
 - `./scripts/deploy.sh` - **NEW** Unified deployment interface (replaces all old deployment scripts)
 - `./scripts/lint.sh` - Code quality validation
 - `./scripts/setup-hooks.sh` - Development environment setup
-- `./scripts/setup-poetry.sh` - Poetry environment setup
+- `./scripts/setup-uv.sh` - uv environment setup
 - `./scripts/setup-cloudflare.sh` - Cloudflare API configuration
 
 ### Consolidated Approach
@@ -20,7 +20,7 @@ Our deployment system uses a **single unified script** that handles both Terrafo
 
 - `deploy-dynamic.sh`
 - `deploy-dynamic-domains.sh`
-- `deploy-poetry.sh`
+- `deploy-uv.sh`
 - `terraform-deploy.sh`
 
 **After (current):**
@@ -40,7 +40,7 @@ Our deployment system uses a **single unified script** that handles both Terrafo
 
 ```bash
 # Setup environment
-./scripts/setup-poetry.sh        # Install dependencies
+./scripts/setup-uv.sh            # Install dependencies
 ./scripts/setup-hooks.sh         # Configure git hooks
 
 # Configure cloud services (one-time)

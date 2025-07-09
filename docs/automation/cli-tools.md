@@ -176,7 +176,7 @@ The unified CLI is automatically available after installing the project:
 
 ```bash
 # Install project dependencies
-poetry install
+uv sync
 
 # Verify CLI availability
 atl status

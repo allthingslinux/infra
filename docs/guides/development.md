@@ -6,7 +6,7 @@ This guide covers development workflows, best practices, and contribution guidel
 
 ### Prerequisites
 
-- **Python 3.11+** with Poetry
+- **Python 3.11+** with uv
 - **Terraform** >= 1.6
 - **Git** with SSH keys configured
 - **Docker** (for local testing)
@@ -20,10 +20,10 @@ git clone git@github.com:allthingslinux/infra.git
 cd infra
 
 # Install dependencies
-poetry install
+uv sync
 
 # Install Ansible collections
-poetry run ansible-galaxy collection install -r ansible/collections/requirements.yml
+uv run ansible-galaxy collection install -r ansible/collections/requirements.yml
 
 # Set up pre-commit hooks
 ./scripts/setup/setup-hooks.sh

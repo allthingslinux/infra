@@ -19,7 +19,7 @@
     - { regexp: "^#?X11Forwarding", line: "X11Forwarding no" }
     - { regexp: "^#?ClientAliveInterval", line: "ClientAliveInterval 300" }
     - { regexp: "^#?ClientAliveCountMax", line: "ClientAliveCountMax 2" }
-  notify: restart ssh
+  notify: Restart ssh
 
 - name: subtasks | ssh | Configure SSH allowed users
   ansible.builtin.lineinfile:
@@ -29,7 +29,7 @@
     backup: true
     validate: "/usr/sbin/sshd -t -f %s"
   when: system_ssh_allow_users | length > 0
-  notify: restart ssh
+  notify: Restart ssh
 
 - name: subtasks | ssh | Configure SSH denied users
   ansible.builtin.lineinfile:
@@ -39,4 +39,4 @@
     backup: true
     validate: "/usr/sbin/sshd -t -f %s"
   when: system_ssh_deny_users | length > 0
-  notify: restart ssh
+  notify: Restart ssh

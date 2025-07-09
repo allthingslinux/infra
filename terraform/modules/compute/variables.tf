@@ -17,7 +17,7 @@ variable "server_type" {
 variable "image" {
   description = "Server image to use"
   type        = string
-  default     = "ubuntu-22.04"
+  default     = "ubuntu-24.04"
 }
 
 variable "location" {
@@ -30,8 +30,6 @@ variable "network_id" {
   description = "ID of the network to attach servers to"
   type        = string
 }
-
-
 
 variable "ssh_key_ids" {
   description = "List of SSH key IDs to attach to servers"
@@ -54,8 +52,6 @@ variable "enable_backups" {
   type        = bool
   default     = true
 }
-
-
 
 variable "tags" {
   description = "Tags to apply to all resources"
