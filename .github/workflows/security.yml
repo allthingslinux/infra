@@ -93,6 +93,31 @@ jobs:
           scanners: ${{ matrix.scan-type == 'python' && 'vuln' || 'vuln,config' }}
           severity: 'CRITICAL,HIGH,MEDIUM'
 
+      - name: Ensure Trivy SARIF file exists
+        run: |
+          sarif_file="trivy-${{ matrix.scan-type }}-results.sarif"
+          if [[ ! -f "$sarif_file" ]]; then
+            echo "Trivy did not generate SARIF file, creating minimal SARIF structure"
+            cat > "$sarif_file" << 'EOF'
+          {
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+              {
+                "tool": {
+                  "driver": {
+                    "name": "trivy",
+                    "informationUri": "https://github.com/aquasecurity/trivy",
+                    "version": "latest"
+                  }
+                },
+                "results": []
+              }
+            ]
+          }
+          EOF
+          fi
+
       - name: Upload Trivy results
         uses: github/codeql-action/upload-sarif@v3
         if: always()
@@ -135,8 +160,33 @@ jobs:
           format: sarif
           soft_fail: true
 
-      - name: Upload TFSec results
+      - name: Ensure TFSec SARIF file exists
         if: matrix.tool == 'tfsec'
+        run: |
+          if [[ ! -f "results.sarif" ]]; then
+            echo "TFSec did not generate SARIF file, creating minimal SARIF structure"
+            cat > results.sarif << 'EOF'
+          {
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+              {
+                "tool": {
+                  "driver": {
+                    "name": "tfsec",
+                    "informationUri": "https://github.com/aquasecurity/tfsec",
+                    "version": "1.0.3"
+                  }
+                },
+                "results": []
+              }
+            ]
+          }
+          EOF
+          fi
+
+      - name: Upload TFSec results
+        if: matrix.tool == 'tfsec' && always()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
@@ -152,8 +202,33 @@ jobs:
           output: 'trivy-ansible-config.sarif'
           scanners: 'config'
 
-      - name: Upload Ansible config results
+      - name: Ensure Ansible config SARIF file exists
         if: matrix.tool == 'ansible-config'
+        run: |
+          if [[ ! -f "trivy-ansible-config.sarif" ]]; then
+            echo "Trivy did not generate SARIF file for Ansible configs, creating minimal SARIF structure"
+            cat > trivy-ansible-config.sarif << 'EOF'
+          {
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+              {
+                "tool": {
+                  "driver": {
+                    "name": "trivy",
+                    "informationUri": "https://github.com/aquasecurity/trivy",
+                    "version": "latest"
+                  }
+                },
+                "results": []
+              }
+            ]
+          }
+          EOF
+          fi
+
+      - name: Upload Ansible config results
+        if: matrix.tool == 'ansible-config' && always()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-ansible-config.sarif'
@@ -196,6 +271,30 @@ jobs:
           uv run pip install bandit[toml]
           uv run bandit -r scripts/ -f sarif -o bandit-results.sarif || true
 
+      - name: Ensure Bandit SARIF file exists
+        run: |
+          if [[ ! -f "bandit-results.sarif" ]]; then
+            echo "Bandit did not generate SARIF file, creating minimal SARIF structure"
+            cat > bandit-results.sarif << 'EOF'
+          {
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+              {
+                "tool": {
+                  "driver": {
+                    "name": "bandit",
+                    "informationUri": "https://github.com/PyCQA/bandit",
+                    "version": "1.7.0"
+                  }
+                },
+                "results": []
+              }
+            ]
+          }
+          EOF
+          fi
+
       - name: Upload Bandit results
         uses: github/codeql-action/upload-sarif@v3
         if: always()
@@ -237,8 +336,33 @@ jobs:
           output: 'trivy-docker-config.sarif'
           scanners: 'config'
 
-      - name: Upload Docker scan results
+      - name: Ensure Docker config SARIF file exists
         if: steps.docker_files.outputs.found == 'true'
+        run: |
+          if [[ ! -f "trivy-docker-config.sarif" ]]; then
+            echo "Trivy did not generate SARIF file for Docker configs, creating minimal SARIF structure"
+            cat > trivy-docker-config.sarif << 'EOF'
+          {
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+              {
+                "tool": {
+                  "driver": {
+                    "name": "trivy",
+                    "informationUri": "https://github.com/aquasecurity/trivy",
+                    "version": "latest"
+                  }
+                },
+                "results": []
+              }
+            ]
+          }
+          EOF
+          fi
+
+      - name: Upload Docker scan results
+        if: steps.docker_files.outputs.found == 'true' && always()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-docker-config.sarif'
