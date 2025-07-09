@@ -23,6 +23,7 @@ mock_roles:
   - docker
   - system
   - tux
+  - rolehippie.coredns
 
 # Skip specific rules that are causing issues
 skip_list:
