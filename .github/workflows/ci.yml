@@ -87,7 +87,12 @@ jobs:
       - name: Check for large files
         run: |
           echo "::group::Checking for large files"
-          if find . -type f -size +10M \
+          echo "Current working directory: $(pwd)"
+          echo "Listing all files larger than 10MB:"
+          find . -type f -size +10M -exec ls -lh {} \; || echo "No files larger than 10MB found"
+
+          echo "Now checking with exclusions:"
+          LARGE_FILES=$(find . -type f -size +10M \
             -not -path "./.git/*" \
             -not -path "./logs/*" \
             -not -path "./.cache/*" \
@@ -97,23 +102,17 @@ jobs:
             -not -path "./.venv/*" \
             -not -path "./.ansible/*" \
             -not -path "./tmp/*" \
-            -not -path "./node_modules/*" | head -1; then
-            echo "❌ Found large files (>10MB). Consider using Git LFS."
-            find . -type f -size +10M \
-              -not -path "./.git/*" \
-              -not -path "./logs/*" \
-              -not -path "./.cache/*" \
-              -not -path "./.terraform/*" \
-              -not -path "./terraform/.terraform/*" \
-              -not -path "./terraform/*/.terraform/*" \
-              -not -path "./.venv/*" \
-              -not -path "./.ansible/*" \
-              -not -path "./tmp/*" \
-              -not -path "./node_modules/*" \
-              -exec ls -lh {} \;
+            -not -path "./node_modules/*")
+
+          if [ -n "$LARGE_FILES" ]; then
+            echo "❌ Found large files (>10MB) that should be in Git LFS:"
+            echo "$LARGE_FILES" | while read -r file; do
+              ls -lh "$file"
+              echo "  → Tracked in git: $(git ls-files "$file" | grep -q . && echo 'YES' || echo 'NO')"
+            done
             exit 1
           else
-            echo "✅ No large files found"
+            echo "✅ No problematic large files found"
           fi
           echo "::endgroup::"
 
