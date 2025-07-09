@@ -1,79 +1,92 @@
 ---
-# Ansible Lint Configuration for All Things Linux Infrastructure
-# Based on official documentation: https://ansible.readthedocs.io/projects/lint/en/latest/configuration/
+# Ansible Lint Configuration
+# https://ansible.readthedocs.io/projects/lint/configuring/
+#
+# This configuration aligns with the project-local ansible.cfg setup
+# Used by both pre-commit hooks and GitHub Actions CI/CD
 
-# Use basic profile for fastest performance during development
-# Use production profile only in CI/CD pipelines
+# Profile - basic for development, production for CI
+# Can be overridden with --profile flag in CI
 profile: basic
 
-# Disable auto-fix for faster performance during pre-commit
-write_list: []
-
-# Performance optimizations
-skip_action_validation: true
-# Exclude certain files/directories from linting
-# Paths are relative to this file's location
+# Exclude paths from linting (aligned with ansible.cfg project-local structure)
 exclude_paths:
-  - .cache/ # Implicit unless exclude_paths is defined
-  - .github/
-  - logs/
-  - .requirements_installed
-  - "*/node_modules/"
-  - "*/venv/"
-  - "*/.venv/"
-  - "**/.ansible/" # Exclude ansible-lint generated directories
-  - ".ansible/" # Exclude root .ansible directory
-  - files/secrets/
-  - host_vars/secrets/
-  - group_vars/secrets/
-  - site/ # Exclude generated documentation site
+  - .ansible/ # Project-local Ansible data (collections, roles, cache, plugins)
+  - .cache/ # General cache directory
+  - .github/ # GitHub workflows and templates
+  - .venv/ # Python virtual environment
+  - site/ # Generated documentation (MkDocs)
+  - logs/ # Log files (ansible.log goes here per ansible.cfg)
+  - tmp/ # Temporary files
+  - terraform/ # Terraform infrastructure (not Ansible)
+  - docs/ # Documentation source files
+  - scripts/ # Python CLI scripts (not Ansible)
+  - monitoring/ # Monitoring configuration templates
+  - configs/ # Configuration files (not playbooks)
+  - vagrant.yml # Vagrant configuration
+  - Vagrantfile # Vagrant configuration
+  - uv.lock # Python dependency lock file
+  - pyproject.toml # Python project configuration
 
-# Allow list of rules to ignore globally for faster pre-commit
-# Note: Consider using .ansible-lint-ignore file instead for better visibility
+# Kinds of files to lint (aligned with ansible.cfg inventory and roles structure)
+kinds:
+  - yaml: "**/*.{yaml,yml}"
+  - playbook: "ansible/playbooks/**/*.{yml,yaml}"
+  - role: "ansible/roles/*/tasks/*.{yml,yaml}"
+  - vars: "ansible/{group_vars,host_vars}/**/*.{yml,yaml}"
+  - inventory: "ansible/inventories/**/*.{yml,yaml}"
+  - requirements: "ansible/requirements.yml"
+
+# Rules to skip globally (development-friendly)
 skip_list:
-  - yaml[line-length] # Allow longer lines for readability in some cases
-  - fqcn-builtins # Skip FQCN checks for speed
-  - name[template] # Skip name template checks for speed
-  - name[casing] # Skip name casing checks for speed
-  - name[missing] # Skip missing name checks for speed
+  - yaml[line-length] # Allow longer lines for readability
+  - name[casing] # Allow flexible task naming conventions
+  - name[template] # Allow Jinja2 template-based task names
+  - package-latest # Allow latest packages in development
+  - risky-file-permissions # Allow flexible file permissions in development
+  - no-changed-when # Allow tasks without changed_when in development
+  - command-instead-of-shell # Allow command module usage
+  - risky-shell-pipe # Allow shell pipes for Docker and complex commands
 
-# Rules that should only warn, not fail
+# Rules to warn about but not fail on (educational)
 warn_list:
+  - name[missing] # Warn about missing task names
   - experimental # Warn about experimental features
-  - name[missing] # Warn about tasks without names
-  - name[casing] # Warn about casing but don't fail
+  - fqcn[action] # Warn about non-FQCN action names
+  - yaml[comments] # Warn about YAML comment formatting
 
-# Disable opt-in rules for faster execution
-enable_list: []
-# Variable naming pattern enforcement
-# Must start with lowercase letter or underscore, followed by lowercase letters, numbers, or underscores
+# Performance and behavior settings
+offline: true # Use offline mode (aligned with pre-commit --offline)
+write_list: [] # Don't auto-fix files
+skip_action_validation: false # Validate actions (important for accuracy)
+strict: false # Don't fail on warnings (development-friendly)
+
+# Variable naming pattern (snake_case)
 var_naming_pattern: "^[a-z_][a-z0-9_]*$"
 
-# Loop variable prefix pattern for roles
-# Helps avoid variable collision in roles
+# Task naming - encourage descriptive names
+task_name_prefix: ""
+
+# Loop variable pattern to avoid conflicts with role variables
 loop_var_prefix: "^(__|{role}_)"
 
-# Task name prefix pattern
-# Use {stem} placeholder for file stem
-task_name_prefix: "{stem} | "
-
-# Minimal mock modules for faster execution
-mock_modules: []
-# Minimal mock roles for faster execution
-mock_roles: []
-# Minimal extra vars for faster execution
-extra_vars: {}
-# Minimal file type detection for faster execution
-kinds: []
-# Use default rules
+# Use default ansible-lint rules as baseline
 use_default_rules: true
 
-# Enable offline mode for better performance
-offline: true
-
-# Disable strict mode for development performance
-# Enable strict mode only in CI/CD pipelines
-strict: false
-
-# Set verbosity level (0-3), lower for better performance
+# Verbosity for local development (CI can override)
 verbosity: 0
+
+# Mock modules and roles for testing (if needed)
+mock_modules: []
+mock_roles: []
+
+# Enable/disable specific rule categories
+enable_list:
+  - fqcn-builtins # Encourage FQCN for built-in modules
+  - no-log-password # Ensure passwords are not logged
+
+# Custom rules directory (if we add any)
+rulesdir: []
+
+# Exclude specific tags from linting (if needed)
+tags: []
