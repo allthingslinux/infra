@@ -1,106 +1,125 @@
-# Configuration for GitHub labeler
-# https://github.com/actions/labeler
+# GitHub Labeler Configuration - Workflow-Oriented
+# Focus on workflow, impact, and review complexity
 
-# Infrastructure as Code
-infrastructure:
+# == IMPACT & SCOPE ==
+# These help prioritize reviews and understand change scope
+
+major:
   - changed-files:
-      - any-glob-to-any-file: "terraform/**/*"
-      - any-glob-to-any-file: "ansible/**/*"
+      - any-glob-to-any-file: "terraform/main.tf"
+      - any-glob-to-any-file: "terraform/variables.tf"
+      - any-glob-to-any-file: "terraform/modules/**/*"
       - any-glob-to-any-file: "configs/domains.yml"
       - any-glob-to-any-file: "configs/environments.yml"
-      - any-glob-to-any-file: "ansible.cfg"
-      - any-glob-to-any-file: "Vagrantfile"
-      - any-glob-to-any-file: "vagrant.yml"
+      - any-glob-to-any-file: "ansible/playbooks/site.yml"
+      - any-glob-to-any-file: "ansible/roles/system/**/*"
 
-# Automation & CI/CD
-automation:
-  - changed-files:
-      - any-glob-to-any-file: "scripts/**/*"
-      - any-glob-to-any-file: ".github/**/*"
-      - any-glob-to-any-file: ".pre-commit-config.yaml"
-      - any-glob-to-any-file: "pyproject.toml"
-      - any-glob-to-any-file: "uv.lock"
-
-# Documentation
-docs:
+minor:
   - changed-files:
       - any-glob-to-any-file: "docs/**/*"
       - any-glob-to-any-file: "README.md"
-      - any-glob-to-any-file: "mkdocs.yml"
-      - any-glob-to-any-file: "scripts/README.md"
-      - any-glob-to-any-file: "terraform/README.md"
-      - any-glob-to-any-file: "ansible/roles/*/README.md"
+      - any-glob-to-any-file: "ansible/playbooks/maintenance/**/*"
+      - any-glob-to-any-file: "monitoring/grafana/**/*"
 
-# Configuration files
-config:
+# == DEPLOYMENT ENVIRONMENTS ==
+# Critical for understanding deployment impact
+
+production:
   - changed-files:
-      - any-glob-to-any-file: "configs/**/*"
-      - any-glob-to-any-file: ".gitleaks.toml"
-      - any-glob-to-any-file: ".gitleaksignore"
-      - any-glob-to-any-file: ".trivyignore"
-      - any-glob-to-any-file: ".yamllint.yml"
-      - any-glob-to-any-file: ".tflint.hcl"
-      - any-glob-to-any-file: ".ansible-lint"
-      - any-glob-to-any-file: "renovate.json"
-      - any-glob-to-any-file: ".python-version"
-      - any-glob-to-any-file: ".vscode/**/*"
-      - any-glob-to-any-file: ".cursor/**/*"
+      - any-glob-to-any-file: "terraform/environments/production/**/*"
+      - any-glob-to-any-file: "ansible/group_vars/production.yml"
+      - any-glob-to-any-file: "ansible/playbooks/infrastructure/**/*"
 
-# Monitoring & Observability
+staging:
+  - changed-files:
+      - any-glob-to-any-file: "terraform/environments/staging/**/*"
+
+development:
+  - changed-files:
+      - any-glob-to-any-file: "terraform/environments/development/**/*"
+
+# == TECHNICAL DOMAINS ==
+# Clear separation for different expertise areas
+
+infrastructure:
+  - changed-files:
+      - any-glob-to-any-file: "terraform/**/*"
+      - any-glob-to-any-file: "ansible/playbooks/infrastructure/**/*"
+      - any-glob-to-any-file: "ansible/roles/system/**/*"
+
+ci/cd:
+  - changed-files:
+      - any-glob-to-any-file: ".github/workflows/**/*"
+      - any-glob-to-any-file: ".pre-commit-config.yaml"
+      - any-glob-to-any-file: "renovate.json"
+
+scripts:
+  - changed-files:
+      - any-glob-to-any-file: "scripts/**/*"
+      - any-glob-to-any-file: "pyproject.toml"
+
+gitops:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/playbooks/operations/**/*"
+      - any-glob-to-any-file: "ansible/playbooks/dynamic-deploy.yml"
+      - any-glob-to-any-file: "ansible/inventories/**/*"
+
+vagrant:
+  - changed-files:
+      - any-glob-to-any-file: "Vagrantfile"
+      - any-glob-to-any-file: "vagrant.yml"
+      - any-glob-to-any-file: ".vagrant/**/*"
+
+security:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/playbooks/security/**/*"
+      - any-glob-to-any-file: "terraform/modules/security/**/*"
+      - any-glob-to-any-file: ".gitleaks.toml"
+      - any-glob-to-any-file: ".trivyignore"
+
 monitoring:
   - changed-files:
       - any-glob-to-any-file: "monitoring/**/*"
       - any-glob-to-any-file: "ansible/playbooks/monitoring/**/*"
       - any-glob-to-any-file: "ansible/tasks/monitoring-integration.yml"
-      - any-glob-to-any-file: "ansible/tasks/service-monitoring.yml"
 
-# Security
-security:
-  - changed-files:
-      - any-glob-to-any-file: "ansible/playbooks/security/**/*"
-      - any-glob-to-any-file: "ansible/tasks/firewall.yml"
-      - any-glob-to-any-file: "terraform/modules/security/**/*"
-      - any-glob-to-any-file: ".gitleaks.toml"
-      - any-glob-to-any-file: ".gitleaksignore"
-      - any-glob-to-any-file: ".trivyignore"
+# == URGENCY & PRIORITY ==
+# Help with triage and response times
 
-# Database & Storage
-database:
-  - changed-files:
-      - any-glob-to-any-file: "ansible/playbooks/infrastructure/database-cluster.yml"
-      - any-glob-to-any-file: "ansible/playbooks/infrastructure/backup-setup.yml"
-      - any-glob-to-any-file: "ansible/playbooks/validation/backup-verification.yml"
-
-# Emergency & Operations
-ops:
+emergency:
   - changed-files:
       - any-glob-to-any-file: "ansible/playbooks/emergency/**/*"
-      - any-glob-to-any-file: "ansible/playbooks/operations/**/*"
+
+maintenance:
+  - changed-files:
       - any-glob-to-any-file: "ansible/playbooks/maintenance/**/*"
-      - any-glob-to-any-file: "ansible/playbooks/users/**/*"
+      - any-glob-to-any-file: "ansible/playbooks/validation/**/*"
 
-# Service-specific labels (only for the main ATL services)
-atl-services:
-  - changed-files:
-      - any-glob-to-any-file: "ansible/playbooks/domains/templates/atl_services*"
+# == SERVICES ==
+# Only the main user-facing services
 
-atl-tools:
+services:
   - changed-files:
-      - any-glob-to-any-file: "ansible/playbooks/domains/templates/atl_tools*"
-
-atl-dev:
-  - changed-files:
-      - any-glob-to-any-file: "ansible/playbooks/domains/templates/atl_dev*"
-
-atl-chat:
-  - changed-files:
-      - any-glob-to-any-file: "ansible/playbooks/domains/templates/atl_chat*"
-
-atl-wiki:
-  - changed-files:
-      - any-glob-to-any-file: "ansible/playbooks/domains/templates/atl_wiki*"
-
-# Tux bot
-tux:
-  - changed-files:
+      - any-glob-to-any-file: "ansible/playbooks/domains/**/*"
       - any-glob-to-any-file: "ansible/roles/tux/**/*"
+
+# == CONFIGURATION ==
+# Non-code configuration changes
+
+config:
+  - changed-files:
+      - any-glob-to-any-file: "configs/**/*"
+      - any-glob-to-any-file: "ansible.cfg"
+      - any-glob-to-any-file: ".yamllint.yml"
+      - any-glob-to-any-file: ".ansible-lint"
+      - any-glob-to-any-file: ".tflint.hcl"
+
+# == DOCUMENTATION ==
+# Only actual documentation
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file: "docs/**/*"
+      - any-glob-to-any-file: "README.md"
+      - any-glob-to-any-file: "mkdocs.yml"
+      - any-glob-to-any-file: "*/README.md"
