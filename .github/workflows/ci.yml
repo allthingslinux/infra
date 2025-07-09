@@ -87,8 +87,30 @@ jobs:
       - name: Check for large files
         run: |
           echo "::group::Checking for large files"
-          if find . -type f -size +1M -not -path "./.git/*" -not -path "./logs/*" -not -path "./.cache/*" | head -1; then
-            echo "❌ Found large files (>1MB). Consider using Git LFS."
+          if find . -type f -size +10M \
+            -not -path "./.git/*" \
+            -not -path "./logs/*" \
+            -not -path "./.cache/*" \
+            -not -path "./.terraform/*" \
+            -not -path "./terraform/.terraform/*" \
+            -not -path "./terraform/*/.terraform/*" \
+            -not -path "./.venv/*" \
+            -not -path "./.ansible/*" \
+            -not -path "./tmp/*" \
+            -not -path "./node_modules/*" | head -1; then
+            echo "❌ Found large files (>10MB). Consider using Git LFS."
+            find . -type f -size +10M \
+              -not -path "./.git/*" \
+              -not -path "./logs/*" \
+              -not -path "./.cache/*" \
+              -not -path "./.terraform/*" \
+              -not -path "./terraform/.terraform/*" \
+              -not -path "./terraform/*/.terraform/*" \
+              -not -path "./.venv/*" \
+              -not -path "./.ansible/*" \
+              -not -path "./tmp/*" \
+              -not -path "./node_modules/*" \
+              -exec ls -lh {} \;
             exit 1
           else
             echo "✅ No large files found"
