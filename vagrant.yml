@@ -1,0 +1,18 @@
+---
+# vagrant.yml - Playbook for provisioning the local development environment
+
+- name: Provision all development servers
+  hosts: all
+  become: true
+  gather_facts: true
+  roles:
+    - role: system
+
+- name: Deploy Internal DNS (CoreDNS)
+  hosts: dns_servers
+  become: true
+  gather_facts: true
+  vars:
+    coredns_config_zones: "{{ internal_dns_zones }}"
+  roles:
+    - role: rolehippie.coredns
