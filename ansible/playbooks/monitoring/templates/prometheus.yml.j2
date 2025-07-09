@@ -1,0 +1,57 @@
+# Prometheus Configuration
+# Auto-generated template for {{ inventory_hostname }}
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node exporters
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets:
+        {% for host in groups['all'] %}
+        - '{{ host }}:9100'
+        {% endfor %}
+
+  # Docker daemon metrics
+  - job_name: 'docker'
+    static_configs:
+      - targets:
+        {% for host in groups['all'] %}
+        - '{{ host }}:9323'
+        {% endfor %}
+
+  # Application specific metrics
+  {% for domain_name, domain_config in enabled_domains.items() %}
+  {% if domain_config.monitoring.enabled | default(false) %}
+  - job_name: '{{ domain_name }}'
+    static_configs:
+      - targets:
+        {% for host in groups[domain_name] | default([]) %}
+        - '{{ host }}:{{ domain_config.port | default(8080) }}'
+        {% endfor %}
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+  {% endif %}
+  {% endfor %}
+
+  # Grafana metrics
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    metrics_path: '/metrics'

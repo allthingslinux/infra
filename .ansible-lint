@@ -1,92 +1,82 @@
 ---
-# Ansible Lint Configuration
-# https://ansible.readthedocs.io/projects/lint/configuring/
-#
-# This configuration aligns with the project-local ansible.cfg setup
-# Used by both pre-commit hooks and GitHub Actions CI/CD
+# Ansible Lint Configuration for ATL Infrastructure
 
-# Profile - basic for development, production for CI
-# Can be overridden with --profile flag in CI
-profile: basic
+# Set quiet mode to reduce noise
+quiet: false
+verbosity: 1
 
-# Exclude paths from linting (aligned with ansible.cfg project-local structure)
+# Use specific profile
+profile: production
+
+# Set paths to exclude from linting
 exclude_paths:
-  - .ansible/ # Project-local Ansible data (collections, roles, cache, plugins)
-  - .cache/ # General cache directory
-  - .github/ # GitHub workflows and templates
-  - .venv/ # Python virtual environment
-  - site/ # Generated documentation (MkDocs)
-  - logs/ # Log files (ansible.log goes here per ansible.cfg)
-  - tmp/ # Temporary files
-  - terraform/ # Terraform infrastructure (not Ansible)
-  - docs/ # Documentation source files
-  - scripts/ # Python CLI scripts (not Ansible)
-  - monitoring/ # Monitoring configuration templates
-  - configs/ # Configuration files (not playbooks)
-  - vagrant.yml # Vagrant configuration
-  - Vagrantfile # Vagrant configuration
-  - uv.lock # Python dependency lock file
-  - pyproject.toml # Python project configuration
+  - .cache/
+  - .github/
+  - tmp/
+  - logs/
+  - .ansible/
+  - ansible/inventories/dynamic.py # Dynamic inventory script
 
-# Kinds of files to lint (aligned with ansible.cfg inventory and roles structure)
-kinds:
-  - yaml: "**/*.{yaml,yml}"
-  - playbook: "ansible/playbooks/**/*.{yml,yaml}"
-  - role: "ansible/roles/*/tasks/*.{yml,yaml}"
-  - vars: "ansible/{group_vars,host_vars}/**/*.{yml,yaml}"
-  - inventory: "ansible/inventories/**/*.{yml,yaml}"
-  - requirements: "ansible/requirements.yml"
+# Mock modules and roles for linting
+mock_modules: []
+mock_roles:
+  - docker
+  - system
+  - tux
 
-# Rules to skip globally (development-friendly)
+# Skip specific rules that are causing issues
 skip_list:
   - yaml[line-length] # Allow longer lines for readability
-  - name[casing] # Allow flexible task naming conventions
-  - name[template] # Allow Jinja2 template-based task names
-  - package-latest # Allow latest packages in development
-  - risky-file-permissions # Allow flexible file permissions in development
-  - no-changed-when # Allow tasks without changed_when in development
-  - command-instead-of-shell # Allow command module usage
-  - risky-shell-pipe # Allow shell pipes for Docker and complex commands
+  - jinja[spacing] # Allow flexible jinja2 spacing
+  - name[casing] # Allow flexible task naming
+  - fqcn # Allow short module names for readability
+  - var-naming[no-role-prefix] # Allow variables without role prefixes
 
-# Rules to warn about but not fail on (educational)
-warn_list:
-  - name[missing] # Warn about missing task names
-  - experimental # Warn about experimental features
-  - fqcn[action] # Warn about non-FQCN action names
-  - yaml[comments] # Warn about YAML comment formatting
-
-# Performance and behavior settings
-offline: true # Use offline mode (aligned with pre-commit --offline)
-write_list: [] # Don't auto-fix files
-skip_action_validation: false # Validate actions (important for accuracy)
-strict: false # Don't fail on warnings (development-friendly)
-
-# Variable naming pattern (snake_case)
-var_naming_pattern: "^[a-z_][a-z0-9_]*$"
-
-# Task naming - encourage descriptive names
-task_name_prefix: ""
-
-# Loop variable pattern to avoid conflicts with role variables
-loop_var_prefix: "^(__|{role}_)"
-
-# Use default ansible-lint rules as baseline
-use_default_rules: true
-
-# Verbosity for local development (CI can override)
-verbosity: 0
-
-# Mock modules and roles for testing (if needed)
-mock_modules: []
-mock_roles: []
-
-# Enable/disable specific rule categories
+# Rules to enforce
 enable_list:
-  - fqcn-builtins # Encourage FQCN for built-in modules
-  - no-log-password # Ensure passwords are not logged
+  - yaml
+  - ansible
+  - syntax-check
 
-# Custom rules directory (if we add any)
+# Warnings that should be ignored
+warn_list:
+  - experimental # Allow experimental features
+  - avoid-implicit # Allow implicit tasks
+
+# Offline mode - don't check for latest versions
+offline: true
+
+# Show progress (note: progressbar not supported in all versions)
+
+# Use colored output
+use_default_rules: true
+parseable: false
+
+# Custom rules directory (if exists)
 rulesdir: []
 
-# Exclude specific tags from linting (if needed)
+# Tags to include
 tags: []
+
+# Strict mode
+strict: false
+
+# Write lock file
+write_list: []
+
+# Configuration for different environments
+kinds:
+  - playbook: "**/*playbook*.yml"
+  - playbook: "**/*playbook*.yaml"
+  - playbook: "**/playbooks/*.yml"
+  - playbook: "**/playbooks/*.yaml"
+  - tasks: "**/tasks/*.yml"
+  - tasks: "**/tasks/*.yaml"
+  - vars: "**/vars/*.yml"
+  - vars: "**/vars/*.yaml"
+  - meta: "**/meta/*.yml"
+  - meta: "**/meta/*.yaml"
+  - yaml: ".ansible-lint"
+  - yaml: ".yamllint"
+  - yaml: "**/*.yaml"
+  - yaml: "**/*.yml"

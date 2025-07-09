@@ -1,0 +1,53 @@
+---
+# Docker Compose for {{ target_domain }}
+# Auto-generated template - customize as needed
+
+version: '3.8'
+
+services:
+  # Main application services for {{ domain_config.domain }}
+  {% for service in domain_config.services %}
+  {{ service | replace('-', '_') }}:
+    image: {{ service }}:latest
+    container_name: {{ target_domain }}_{{ service | replace('-', '_') }}
+    restart: unless-stopped
+    networks:
+      - {{ target_domain }}_network
+    {% if service == 'nginx-proxy-manager' %}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81"
+    {% endif %}
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ={{ ansible_timezone | default('UTC') }}
+    volumes:
+      - {{ service_dir }}/{{ service }}/config:/config
+      - {{ service_dir }}/{{ service }}/data:/data
+    {% if service == 'grafana' %}
+    ports:
+      - "3000:3000"
+    {% elif service == 'prometheus' %}
+    ports:
+      - "9090:9090"
+    {% elif service == 'alertmanager' %}
+    ports:
+      - "9093:9093"
+    {% endif %}
+
+  {% endfor %}
+
+networks:
+  {{ target_domain }}_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: {{ domain_config.network.subnet | default('172.20.0.0/16') }}
+
+volumes:
+  {% for service in domain_config.services %}
+  {{ target_domain }}_{{ service | replace('-', '_') }}_config:
+  {{ target_domain }}_{{ service | replace('-', '_') }}_data:
+  {% endfor %}

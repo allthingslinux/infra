@@ -33,6 +33,7 @@
   when:
     - "'LANG=#{system_locale}' not in locale_status.stdout"
     - system_language is not defined or "'LANGUAGE=#{system_language}' not in locale_status.stdout"
+  changed_when: true
 
 - name: subtasks | locale | Verify locale is set correctly
   ansible.builtin.command: localectl status

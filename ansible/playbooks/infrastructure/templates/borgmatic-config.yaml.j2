@@ -1,0 +1,63 @@
+# Borgmatic Configuration
+# Auto-generated template for {{ inventory_hostname }}
+
+# Repository configuration
+repositories:
+  - path: /var/backups/borg/{{ inventory_hostname }}
+    label: local
+
+# Source directories to backup
+source_directories:
+  - /opt
+  - /etc
+  - /var/log
+  - /home
+  {% for domain_name in enabled_domains.keys() %}
+  - /opt/{{ domain_name }}
+  {% endfor %}
+
+# Exclude patterns
+exclude_patterns:
+  - /opt/*/logs
+  - /opt/*/tmp
+  - '*.log'
+  - '*.tmp'
+  - '*.cache'
+  - '/var/log/*.log'
+
+# Retention policy
+retention:
+  keep_within: 1d
+  keep_daily: 7
+  keep_weekly: 4
+  keep_monthly: 6
+  keep_yearly: 1
+
+# Consistency checks
+consistency:
+  checks:
+    - name: repository
+      frequency: 2 weeks
+    - name: archives
+      frequency: 1 month
+
+# Hooks
+before_backup:
+  - echo "Starting backup for {{ inventory_hostname }}"
+
+after_backup:
+  - echo "Backup completed for {{ inventory_hostname }}"
+
+# Archive name format
+archive_name_format: '{hostname}-{now:%Y-%m-%d-%H%M%S}'
+
+# Compression
+compression: lz4
+
+# Storage quota (optional)
+storage_quota: 10G
+
+# Additional options
+create:
+  numeric_owner: true
+  exclude_caches: true
