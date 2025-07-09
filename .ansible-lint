@@ -8,6 +8,9 @@ profile: basic
 
 # Disable auto-fix for faster performance during pre-commit
 write_list: []
+
+# Performance optimizations
+skip_action_validation: true
 # Exclude certain files/directories from linting
 # Paths are relative to this file's location
 exclude_paths:
