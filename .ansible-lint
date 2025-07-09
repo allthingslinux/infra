@@ -8,7 +8,6 @@ profile: basic
 
 # Disable auto-fix for faster performance during pre-commit
 write_list: []
-
 # Exclude certain files/directories from linting
 # Paths are relative to this file's location
 exclude_paths:
@@ -24,6 +23,7 @@ exclude_paths:
   - files/secrets/
   - host_vars/secrets/
   - group_vars/secrets/
+  - site/ # Exclude generated documentation site
 
 # Allow list of rules to ignore globally for faster pre-commit
 # Note: Consider using .ansible-lint-ignore file instead for better visibility
@@ -42,7 +42,6 @@ warn_list:
 
 # Disable opt-in rules for faster execution
 enable_list: []
-
 # Variable naming pattern enforcement
 # Must start with lowercase letter or underscore, followed by lowercase letters, numbers, or underscores
 var_naming_pattern: "^[a-z_][a-z0-9_]*$"
@@ -57,16 +56,12 @@ task_name_prefix: "{stem} | "
 
 # Minimal mock modules for faster execution
 mock_modules: []
-
 # Minimal mock roles for faster execution
 mock_roles: []
-
 # Minimal extra vars for faster execution
 extra_vars: {}
-
 # Minimal file type detection for faster execution
 kinds: []
-
 # Use default rules
 use_default_rules: true
 
