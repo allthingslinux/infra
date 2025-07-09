@@ -1,0 +1,167 @@
+# Configuration for GitHub labeler
+# https://github.com/actions/labeler
+
+# Infrastructure as Code
+terraform:
+  - changed-files:
+      - any-glob-to-any-file: "terraform/**/*"
+      - any-glob-to-any-file: "**/*.tf"
+      - any-glob-to-any-file: "**/*.tfvars"
+      - any-glob-to-any-file: "**/*.tfvars.example"
+
+ansible:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/**/*"
+      - any-glob-to-any-file: "**/*.yml"
+      - any-glob-to-any-file: "**/*.yaml"
+      - any-glob-to-any-file: "ansible.cfg"
+
+# Documentation
+docs:
+  - changed-files:
+      - any-glob-to-any-file: "docs/**/*"
+      - any-glob-to-any-file: "**/*.md"
+      - any-glob-to-any-file: "mkdocs.yml"
+      - any-glob-to-any-file: "README.md"
+
+# Python CLI and Scripts
+scripts:
+  - changed-files:
+      - any-glob-to-any-file: "scripts/**/*"
+      - any-glob-to-any-file: "**/*.py"
+      - any-glob-to-any-file: "pyproject.toml"
+      - any-glob-to-any-file: "uv.lock"
+
+# Configuration files
+config:
+  - changed-files:
+      - any-glob-to-any-file: "configs/**/*"
+      - any-glob-to-any-file: "**/*.yml"
+      - any-glob-to-any-file: "**/*.yaml"
+      - any-glob-to-any-file: "vagrant.yml"
+      - any-glob-to-any-file: "Vagrantfile"
+
+# Monitoring and Observability
+monitoring:
+  - changed-files:
+      - any-glob-to-any-file: "monitoring/**/*"
+      - any-glob-to-any-file: "ansible/playbooks/monitoring/**/*"
+      - any-glob-to-any-file: "ansible/tasks/monitoring-integration.yml"
+      - any-glob-to-any-file: "ansible/tasks/service-monitoring.yml"
+      - any-glob-to-any-file: "**/*prometheus*"
+      - any-glob-to-any-file: "**/*grafana*"
+      - any-glob-to-any-file: "**/*alertmanager*"
+
+# Security
+security:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/playbooks/security/**/*"
+      - any-glob-to-any-file: "ansible/tasks/firewall.yml"
+      - any-glob-to-any-file: "terraform/modules/security/**/*"
+      - any-glob-to-any-file: "**/*security*"
+      - any-glob-to-any-file: "**/*firewall*"
+
+# Database
+database:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/playbooks/infrastructure/database-cluster.yml"
+      - any-glob-to-any-file: "**/*database*"
+      - any-glob-to-any-file: "**/*postgres*"
+      - any-glob-to-any-file: "**/*redis*"
+
+# CI/CD and Automation
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ".github/**/*"
+      - any-glob-to-any-file: ".pre-commit-config.yaml"
+      - any-glob-to-any-file: "renovate.json"
+      - any-glob-to-any-file: "**/*ci*"
+      - any-glob-to-any-file: "**/*pipeline*"
+
+# Docker and Containerization
+docker:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/roles/docker/**/*"
+      - any-glob-to-any-file: "**/*docker*"
+      - any-glob-to-any-file: "**/*compose*"
+      - any-glob-to-any-file: "ansible/playbooks/domains/templates/*compose*"
+
+# Backup and Recovery
+backup:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/playbooks/infrastructure/backup-setup.yml"
+      - any-glob-to-any-file: "ansible/playbooks/validation/backup-verification.yml"
+      - any-glob-to-any-file: "**/*backup*"
+      - any-glob-to-any-file: "**/*borgmatic*"
+
+# Emergency and Operations
+emergency:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/playbooks/emergency/**/*"
+      - any-glob-to-any-file: "ansible/playbooks/operations/**/*"
+      - any-glob-to-any-file: "ansible/playbooks/maintenance/**/*"
+
+# User Management
+users:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/playbooks/users/**/*"
+      - any-glob-to-any-file: "ansible/group_vars/staff.yml"
+      - any-glob-to-any-file: "**/*user*"
+      - any-glob-to-any-file: "**/*staff*"
+
+# Network and DNS
+network:
+  - changed-files:
+      - any-glob-to-any-file: "terraform/modules/network/**/*"
+      - any-glob-to-any-file: "terraform/load_balancer.tf"
+      - any-glob-to-any-file: "terraform/domains.tf"
+      - any-glob-to-any-file: "ansible/group_vars/internal_dns.yml"
+      - any-glob-to-any-file: "ansible/playbooks/infrastructure/internal-dns.yml"
+      - any-glob-to-any-file: "**/*dns*"
+      - any-glob-to-any-file: "**/*network*"
+
+# Service-specific labels
+atl-services:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/playbooks/domains/templates/atl_services*"
+      - any-glob-to-any-file: "**/*atl_services*"
+
+atl-tools:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/playbooks/domains/templates/atl_tools*"
+      - any-glob-to-any-file: "**/*atl_tools*"
+
+atl-dev:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/playbooks/domains/templates/atl_dev*"
+      - any-glob-to-any-file: "**/*atl_dev*"
+
+atl-chat:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/playbooks/domains/templates/atl_chat*"
+      - any-glob-to-any-file: "**/*atl_chat*"
+
+atl-wiki:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/playbooks/domains/templates/atl_wiki*"
+      - any-glob-to-any-file: "**/*atl_wiki*"
+
+tux:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/roles/tux/**/*"
+      - any-glob-to-any-file: "**/*tux*"
+
+# Dependencies and package management
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: "ansible/requirements.yml"
+      - any-glob-to-any-file: "requirements.txt"
+      - any-glob-to-any-file: "pyproject.toml"
+      - any-glob-to-any-file: "uv.lock"
+      - any-glob-to-any-file: "renovate.json"
+
+# Logs and temporary files
+logs:
+  - changed-files:
+      - any-glob-to-any-file: "logs/**/*"
+      - any-glob-to-any-file: "tmp/**/*"
