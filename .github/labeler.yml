@@ -47,6 +47,14 @@ infrastructure:
       - any-glob-to-any-file: "ansible/playbooks/infrastructure/**/*"
       - any-glob-to-any-file: "ansible/roles/system/**/*"
 
+docker:
+  - changed-files:
+      - any-glob-to-any-file: "**/*docker-compose*.yml*"
+      - any-glob-to-any-file: "**/*compose*.yml*"
+      - any-glob-to-any-file: "ansible/roles/docker/**/*"
+      - any-glob-to-any-file: "**/Dockerfile*"
+      - any-glob-to-any-file: "**/*.dockerfile"
+
 ci/cd:
   - changed-files:
       - any-glob-to-any-file: ".github/workflows/**/*"
