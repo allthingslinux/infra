@@ -113,6 +113,7 @@ config:
       - any-glob-to-any-file: "configs/**/*"
       - any-glob-to-any-file: "ansible.cfg"
       - any-glob-to-any-file: "ansible/requirements.yml"
+      - any-glob-to-any-file: ".pre-commit-config.yaml"
       - any-glob-to-any-file: ".yamllint.yml"
       - any-glob-to-any-file: ".ansible-lint"
       - any-glob-to-any-file: ".tflint.hcl"
