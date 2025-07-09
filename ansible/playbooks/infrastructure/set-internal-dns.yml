@@ -9,4 +9,4 @@
 
   tasks:
     - name: Configure internal DNS resolver
-      ansible.builtin.import_tasks: ../../roles/system/tasks/set_dns_resolver.yml
+      ansible.builtin.import_tasks: ../../roles/system/tasks/subtasks/set_dns_resolver.yml

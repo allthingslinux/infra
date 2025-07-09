@@ -7,31 +7,8 @@ ci:
   autoupdate_schedule: monthly
 
 repos:
-  # Ansible Lint
-  - repo: https://github.com/ansible/ansible-lint
-    rev: v24.12.2 # Use latest release from https://github.com/ansible/ansible-lint/releases/
-    hooks:
-      - id: ansible-lint
-        name: Ansible Lint
-        description: Run ansible-lint on Ansible playbooks
-        files: \.(yml|yaml)$
-        # Install full Ansible community bundle for better collection support
-        additional_dependencies:
-          - ansible>=8.0.0
-        args:
-          - --strict
-        exclude: |
-          (?x)^(
-            \.cache/.*|
-            logs/.*|
-            \.requirements_installed|
-            .*node_modules/.*|
-            .*venv/.*|
-            .*\.venv/.*|
-            files/secrets/.*|
-            host_vars/secrets/.*|
-            group_vars/secrets/.*
-          )$
+  # Ansible Lint - Moved to GitHub Actions for better performance
+  # See .github/workflows/ansible-lint.yml for full linting in CI/CD
 
   # YAML Linting
   - repo: https://github.com/adrienverge/yamllint

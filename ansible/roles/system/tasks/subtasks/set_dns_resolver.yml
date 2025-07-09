@@ -1,5 +1,5 @@
 ---
-- name: set_dns_resolver | Configure systemd-resolved for internal DNS
+- name: subtasks | set_dns_resolver | Configure systemd-resolved for internal DNS
   community.general.ini_file:
     path: /etc/systemd/resolved.conf.d/10-internal-dns.conf
     section: Resolve
