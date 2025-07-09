@@ -5,24 +5,21 @@
 ci:
   # This section is specific to pre-commit.ci
   autoupdate_schedule: monthly
-  # Skip ansible-lint on pre-commit.ci since we have collection dependencies
-  # that can't be installed in offline mode
-  skip:
-    - ansible-lint
+  # ansible-lint is disabled in pre-commit and runs in CI only
 
 repos:
-  # Ansible Lint - Fast local checks with offline mode
+  # Ansible Lint - Disabled in pre-commit, runs in CI only
   # Full comprehensive linting runs in GitHub Actions (.github/workflows/ansible-lint.yml)
-  # Note: Skipped on pre-commit.ci due to collection dependencies (see ci.skip above)
-  - repo: https://github.com/ansible/ansible-lint
-    rev: v25.6.1
-    hooks:
-      - id: ansible-lint
-        files: ^ansible/.*\.(yml|yaml)$
-        args:
-          - --offline
-        additional_dependencies:
-          - ansible-core # Minimal package for faster installs
+  # Disabled locally to avoid slow pre-commit hooks on non-ansible changes
+  # - repo: https://github.com/ansible/ansible-lint
+  #   rev: v25.6.1
+  #   hooks:
+  #     - id: ansible-lint
+  #       files: ^(ansible/.*\.(yml|yaml)|ansible\.cfg|configs/domains\.yml|configs/environments\.yml|vagrant\.yml|Vagrantfile)$
+  #       args:
+  #         - --offline
+  #       additional_dependencies:
+  #         - ansible-core # Minimal package for faster installs
 
   # YAML Linting
   - repo: https://github.com/adrienverge/yamllint
