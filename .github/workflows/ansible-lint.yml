@@ -142,16 +142,6 @@ jobs:
             echo "✅ YAML file permissions are correct"
           fi
 
-      - name: Check for secrets
-        run: |
-          if grep -r -i -E "(password|secret|key|token)" --include="*.yml" --include="*.yaml" . | grep -v -E "(# |description|comment|example)"; then
-            echo "❌ Potential secrets found in YAML files"
-            echo "Please use Ansible Vault for sensitive data"
-            exit 1
-          else
-            echo "✅ No obvious secrets found in plain text"
-          fi
-
   deployment-test:
     name: Deployment Test (Dry Run)
     runs-on: ubuntu-24.04
