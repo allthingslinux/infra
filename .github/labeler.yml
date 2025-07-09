@@ -73,6 +73,24 @@ docker:
       - any-glob-to-any-file: "**/Dockerfile*"
       - any-glob-to-any-file: "**/*.dockerfile"
 
+deps:
+  - changed-files:
+      - any-glob-to-any-file: "pyproject.toml"
+      - any-glob-to-any-file: "uv.lock"
+      - any-glob-to-any-file: "ansible/requirements.yml"
+      - any-glob-to-any-file: "renovate.json"
+      - any-glob-to-any-file: "**/requirements*.txt"
+      - any-glob-to-any-file: "**/package*.json"
+      - any-glob-to-any-file: "**/yarn.lock"
+      - any-glob-to-any-file: "**/package-lock.json"
+      - any-glob-to-any-file: "**/Pipfile*"
+      - any-glob-to-any-file: "**/poetry.lock"
+      - any-glob-to-any-file: "**/Gemfile*"
+      - any-glob-to-any-file: "**/composer.json"
+      - any-glob-to-any-file: "**/composer.lock"
+      - any-glob-to-any-file: "**/go.mod"
+      - any-glob-to-any-file: "**/go.sum"
+
 ci/cd:
   - changed-files:
       - any-glob-to-any-file: ".github/workflows/**/*"
