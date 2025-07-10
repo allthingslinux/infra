@@ -74,7 +74,7 @@ class LintManager:
         fix: bool = False,
         strict: bool = False,
     ) -> bool:
-        """Run all available linters"""
+        """Run targeted linters based on the target parameter"""
         self.logger.info("Starting comprehensive linting...")
 
         # Check prerequisites but don't store unused result
@@ -82,8 +82,8 @@ class LintManager:
         overall_success = True
         results = {}
 
-        # Run each linter
-        linters = [
+        # Define all available linters
+        all_linters = [
             ("Python (ruff)", self.run_ruff_lint),
             ("YAML (yamllint)", self.run_yaml_lint),
             ("Ansible (ansible-lint)", self.run_ansible_lint),
@@ -92,6 +92,21 @@ class LintManager:
             ("Markdown (pymarkdown)", self.run_markdown_lint),
         ]
 
+        # Filter linters based on target
+        if target == "all":
+            linters = all_linters
+        elif target == "python":
+            linters = [("Python (ruff)", self.run_ruff_lint)]
+        elif target == "markdown":
+            linters = [("Markdown (pymarkdown)", self.run_markdown_lint)]
+        elif target in ["playbooks", "inventories", "roles"]:
+            # These are Ansible-specific targets
+            linters = [("Ansible (ansible-lint)", self.run_ansible_lint)]
+        else:
+            self.logger.error(f"Unknown target: {target}")
+            return False
+
+        # Run selected linters
         for linter_name, linter_func in linters:
             self.logger.info(f"Running {linter_name}...")
             try:
@@ -507,7 +522,7 @@ def cli(target, verbose, fix, strict):
     # Check prerequisites
     lint_manager.check_prerequisites()
 
-    # Run all checks
+    # Run targeted checks
     overall_success = lint_manager.run_all_linters(target, verbose, fix, strict)
 
     # Final result
