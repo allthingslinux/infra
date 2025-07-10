@@ -1,18 +1,14 @@
 # All Things Linux Infrastructure Monorepo
 
-<div align="center">
-
 ![All Things Linux](https://img.shields.io/badge/All%20Things-Linux-blue?style=for-the-badge)
 ![Terraform](https://img.shields.io/badge/Terraform-7B42BC?style=for-the-badge&logo=terraform&logoColor=white)
 ![Ansible](https://img.shields.io/badge/Ansible-EE0000?style=for-the-badge&logo=ansible&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![Infrastructure as Code](https://img.shields.io/badge/Infrastructure-as%20Code-green?style=for-the-badge)
 
-**Infrastructure-as-Code monorepo for the All Things Linux 501(c)(3) non-profit organization**
+### Infrastructure-as-Code monorepo for the All Things Linux 501(c)(3) non-profit organization
 
 [🚀 Quick Start](#-quick-start) • [📁 Structure](#-monorepo-structure) • [🔧 Development](#-development) • [📚 Documentation](docs/)
-
-</div>
 
 ## 🏗️ Overview
 
@@ -343,13 +339,9 @@ This infrastructure code is licensed under the MIT License. See [LICENSE](LICENS
 
 ---
 
-<div align="center">
-
-**[All Things Linux](https://allthingslinux.org)** • A 501(c)(3) Non-Profit Organization
+### [All Things Linux](https://allthingslinux.org) • A 501(c)(3) Non-Profit Organization
 
 *Empowering the Linux ecosystem through education, collaboration, and open infrastructure*
-
-</div>
 
 ### Development Environment
 
@@ -379,6 +371,6 @@ For local development and testing of Ansible roles, please refer to the [Local D
     ansible-playbook -i inventories/production site.yml
     ```
 
-## 🤝 Contributing
+## 📋 Additional Resources
 
 Please see `CONTRIBUTING.md` for details on how to contribute to this project.
