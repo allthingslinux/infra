@@ -11,7 +11,8 @@ ci:
   autoupdate_branch: ""
   autoupdate_commit_msg: "chore: pre-commit autoupdate"
   autoupdate_schedule: weekly
-  skip: []
+  skip:
+    - ansible-lint
   submodules: false
 
 repos:
