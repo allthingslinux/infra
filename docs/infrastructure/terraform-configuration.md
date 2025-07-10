@@ -49,10 +49,13 @@ Terraform is configured to use project-local directories for all operations via 
 plugin_cache_dir = "$TERRAFORM_CACHE_DIR"
 ```
 
-The ATL CLI automatically centralizes all terraform operations in the project root:
+The ATL CLI automatically centralizes all terraform operations in a single unified directory:
 
-- **Plugin Cache**: `.terraform-cache/` (shared across all operations)
-- **Working Directory**: `.terraform/` (terraform state, modules, providers)
+- **Unified Directory**: `.terraform/` (contains everything terraform-related)
+  - `.terraform/cache/` (plugin cache shared across all operations)
+  - `.terraform/providers/` (provider installations)
+  - `.terraform/modules/` (module installations)
+  - `.terraform/terraform.tfstate` (state file, when using local backend)
 
 ### Benefits
 
@@ -65,9 +68,9 @@ The ATL CLI automatically centralizes all terraform operations in the project ro
 ### How It Works
 
 1. **TF_CLI_CONFIG_FILE** - Points to project-specific `.terraformrc`
-2. **TERRAFORM_CACHE_DIR** - Points to `.terraform-cache/` in project root
+2. **TERRAFORM_CACHE_DIR** - Points to `.terraform/cache/` (unified structure)
 3. **TF_DATA_DIR** - Points to `.terraform/` in project root
-4. **All operations** - Use centralized directories regardless of working directory
+4. **All operations** - Use single unified directory regardless of working directory
 
 ## Usage Guidelines
 
@@ -110,30 +113,34 @@ terraform init
 
 ### Verifying Plugin Cache
 
-Check that the plugin cache is working:
+Check that the unified terraform directory is working:
 
 ```bash
-# Check project-local cache directory
-ls -la .terraform-cache/
+# Check unified terraform directory
+ls -la .terraform/
+ls -la .terraform/cache/
 
-# Run deployment and verify it uses cache
+# Run deployment and verify it uses unified structure
 atl deploy plan -e development --terraform-only
 ```
 
 ### Directory Locations
 
-All terraform data is centralized in the project root:
+All terraform data is centralized in a single unified directory:
 
-- **Plugin Cache**: `.terraform-cache/` (shared provider plugins)
-- **Working Directory**: `.terraform/` (state, modules, provider installations)
-- **Benefits**: Complete centralization, team consistency, no scattered files
+- **Unified Directory**: `.terraform/` (everything terraform-related)
+  - **Plugin Cache**: `.terraform/cache/` (shared provider plugins)
+  - **Providers**: `.terraform/providers/` (provider installations)
+  - **State**: `.terraform/terraform.tfstate` (when using local backend)
+  - **Modules**: `.terraform/modules/` (module installations)
+- **Benefits**: Complete unification, team consistency, no scattered files
 
 ## Best Practices
 
 1. **Use the ATL CLI** - Prefer `atl deploy` over direct terraform commands
 2. **Only initialize root modules** - Never run `terraform init` in modules
 3. **Use project-specific caching** - `.terraformrc` is automatically configured
-4. **Clean up periodically** - Remove old cached plugins from `.terraform-cache/`
+4. **Clean up periodically** - Remove old cached plugins from `.terraform/cache/`
 5. **Document structure** - Make it clear which directories are roots vs modules
 6. **Use version constraints** - Pin provider versions in your configurations
 

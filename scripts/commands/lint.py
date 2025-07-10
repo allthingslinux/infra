@@ -205,10 +205,10 @@ class LintManager:
 
         # Set up project-specific terraform configuration
         config_file = str(self.project_root / ".terraformrc")
-        cache_dir = self.project_root / ".terraform-cache"
         data_dir = self.project_root / ".terraform"
-        cache_dir.mkdir(exist_ok=True)
+        cache_dir = data_dir / "cache"
         data_dir.mkdir(exist_ok=True)
+        cache_dir.mkdir(exist_ok=True)
 
         self.logger.debug(f"Using terraform config: {config_file}")
         self.logger.debug(f"Plugin cache directory: {cache_dir}")
