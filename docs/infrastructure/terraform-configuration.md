@@ -46,16 +46,14 @@ Terraform is configured to use project-local directories for all operations via 
 
 ```hcl
 # Project-specific Terraform CLI Configuration
-plugin_cache_dir = "$TERRAFORM_CACHE_DIR"
+plugin_cache_dir = "$TF_PLUGIN_CACHE_DIR"
 ```
 
 The ATL CLI automatically centralizes all terraform operations in a single unified directory:
 
 - **Unified Directory**: `.terraform/` (contains everything terraform-related)
   - `.terraform/cache/` (plugin cache shared across all operations)
-  - `.terraform/providers/` (provider installations)
-  - `.terraform/modules/` (module installations)
-  - `.terraform/terraform.tfstate` (state file, when using local backend)
+  - `.terraform/data/` (terraform working data - providers, modules, state)
 
 ### Benefits
 
@@ -64,12 +62,13 @@ The ATL CLI automatically centralizes all terraform operations in a single unifi
 3. **Faster initialization** - plugins are downloaded once and reused
 4. **Saves disk space** - no duplicate plugin downloads
 5. **Cleaner repository** - single location for all terraform data
+6. **No provider duplication** - separate cache and data directories prevent duplicates
 
 ### How It Works
 
 1. **TF_CLI_CONFIG_FILE** - Points to project-specific `.terraformrc`
-2. **TERRAFORM_CACHE_DIR** - Points to `.terraform/cache/` (unified structure)
-3. **TF_DATA_DIR** - Points to `.terraform/` in project root
+2. **TF_PLUGIN_CACHE_DIR** - Points to `.terraform/cache/` (plugin cache)
+3. **TF_DATA_DIR** - Points to `.terraform/data/` (terraform working data)
 4. **All operations** - Use single unified directory regardless of working directory
 
 ## Usage Guidelines
@@ -130,10 +129,11 @@ All terraform data is centralized in a single unified directory:
 
 - **Unified Directory**: `.terraform/` (everything terraform-related)
   - **Plugin Cache**: `.terraform/cache/` (shared provider plugins)
-  - **Providers**: `.terraform/providers/` (provider installations)
-  - **State**: `.terraform/terraform.tfstate` (when using local backend)
-  - **Modules**: `.terraform/modules/` (module installations)
-- **Benefits**: Complete unification, team consistency, no scattered files
+  - **Working Data**: `.terraform/data/` (terraform working directory data)
+    - `.terraform/data/providers/` (provider installations)
+    - `.terraform/data/modules/` (module installations)
+    - `.terraform/data/terraform.tfstate` (when using local backend)
+- **Benefits**: Complete unification, team consistency, no scattered files, no provider duplication
 
 ## Best Practices
 

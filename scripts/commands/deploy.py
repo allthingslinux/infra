@@ -36,14 +36,14 @@ class DeploymentManager:
         # Set up environment for project-specific terraform configuration
         env = os.environ.copy()
         env["TF_CLI_CONFIG_FILE"] = str(self.project_root / ".terraformrc")
-        env["TERRAFORM_CACHE_DIR"] = str(self.project_root / ".terraform" / "cache")
-        env["TF_DATA_DIR"] = str(self.project_root / ".terraform")
+        env["TF_PLUGIN_CACHE_DIR"] = str(self.project_root / ".terraform" / "cache")
+        env["TF_DATA_DIR"] = str(self.project_root / ".terraform" / "data")
 
         # Ensure terraform directories exist
-        data_dir = self.project_root / ".terraform"
-        cache_dir = data_dir / "cache"
-        data_dir.mkdir(exist_ok=True)
-        cache_dir.mkdir(exist_ok=True)
+        data_dir = self.project_root / ".terraform" / "data"
+        cache_dir = self.project_root / ".terraform" / "cache"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        cache_dir.mkdir(parents=True, exist_ok=True)
 
         self.logger.info(f"Using terraform config: {env['TF_CLI_CONFIG_FILE']}")
         self.logger.info(f"Plugin cache directory: {cache_dir}")

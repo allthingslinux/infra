@@ -159,8 +159,8 @@ override.tf.json
 .terraformrc
 terraform.rc
 
-# Project-specific terraform cache
-.terraform-cache/
+# Project-specific terraform directories
+.terraform/
 
 # Ansible
 ansible/**/*.retry
@@ -242,4 +242,3 @@ env/
 tmp/
 
 # Vagrant
-.vagrant/
