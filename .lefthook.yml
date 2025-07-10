@@ -190,12 +190,12 @@ pre-commit:
     # === SHELL SCRIPTS ===
     shfmt:
       glob: "*.sh"
-      run: shfmt -w -s -i=2 {staged_files}
+      run: uv run shfmt -w -s -i=2 {staged_files}
       stage_fixed: true
 
     shellcheck:
       glob: "*.sh"
-      run: shellcheck -e SC1091 -e SC2034 {staged_files}
+      run: uv run shellcheck -e SC1091 -e SC2034 {staged_files}
 
     # === ANSIBLE ===
     ansible-lint-fast:

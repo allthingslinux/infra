@@ -665,6 +665,8 @@ dev = [
     { name = "commitlint" },
     { name = "lefthook" },
     { name = "ruff" },
+    { name = "shellcheck-py" },
+    { name = "shfmt-py" },
     { name = "yamllint" },
 ]
 docs = [
@@ -707,6 +709,8 @@ dev = [
     { name = "commitlint", specifier = ">=1.3.0" },
     { name = "lefthook", specifier = ">=1.11.0" },
     { name = "ruff", specifier = ">=0.12.2" },
+    { name = "shellcheck-py", specifier = ">=0.10.0.1" },
+    { name = "shfmt-py", specifier = ">=3.12.0.2" },
     { name = "yamllint", specifier = ">=1.37.1" },
 ]
 docs = [
@@ -1573,6 +1577,24 @@ sdist = { url = "https://files.pythonhosted.org/packages/18/5d/3bf57dcd21979b887
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl", hash = "sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922", size = 1201486, upload-time = "2025-05-27T00:56:49.664Z" },
 ]
+
+[[package]]
+name = "shellcheck-py"
+version = "0.10.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4b/ad/b96c0bc2e740797770307065464780eaeb1ab3eaa2bc4fbddaa8cfbba2ea/shellcheck_py-0.10.0.1.tar.gz", hash = "sha256:390826b340b8c19173922b0da5ef7b66ef34d4d087dc48aad3e01f7e77e164d9", size = 3071, upload-time = "2024-03-17T15:15:39.409Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/98/74/b72e25338a8813da9845ffe0213c597bed0317078ebb096c72d3f8347972/shellcheck_py-0.10.0.1-py2.py3-none-macosx_11_0_x86_64.whl", hash = "sha256:48f08965cafbb3363b265c4ef40628ffced19cb6fc7c4bb5ce72d32cbcfb4bb9", size = 6751219, upload-time = "2024-03-17T15:18:05.499Z" },
+    { url = "https://files.pythonhosted.org/packages/c1/e8/95f0a2431e1c557af017648cd83ac52de81a16fa1cbe412b12e7dda51688/shellcheck_py-0.10.0.1-py2.py3-none-macosx_14_0_arm64.whl", hash = "sha256:8f3bf12ee6d0845dd5ac1a7bac8c4b1fec0379e115950986883c9488af40ada7", size = 11316565, upload-time = "2024-03-17T15:28:46.763Z" },
+    { url = "https://files.pythonhosted.org/packages/cb/5c/ca7c7440dc25591961a8c6544468d3c987e2a84cb832a0f8b10e699e43b6/shellcheck_py-0.10.0.1-py2.py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c1c266f7f54cd286057c592ead3095f93d123acdcabf048879a7d8900c3aac7b", size = 3647494, upload-time = "2024-03-17T15:20:41.627Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/f7/5a1fff2c73bb2d044e3e9556961c4bb42525298782a199c8af232bf5ea8a/shellcheck_py-0.10.0.1-py2.py3-none-win_amd64.whl", hash = "sha256:be73a16931c05f79643ff74b6519d1e1203b394583ab8c68a48a8e7f257d1090", size = 1611786, upload-time = "2024-03-17T15:18:07.95Z" },
+]
+
+[[package]]
+name = "shfmt-py"
+version = "3.12.0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/af/d9/a1ea26749bd19467e9fbfe7b34e6c8df517e01de4028a45b954eebe8c03b/shfmt_py-3.12.0.2.tar.gz", hash = "sha256:6a0dc675b37d000eb236609cf15aedd9e7a538927ea02c57b617908b6f237e9c", size = 4467, upload-time = "2025-07-08T06:54:40.396Z" }
 
 [[package]]
 name = "six"
