@@ -9,8 +9,8 @@ Before you begin, you must have the following software installed on your worksta
 1. **[Vagrant](https://www.vagrantup.com/downloads)**: A tool for building and managing virtual machine environments.
 2. **A Virtualization Provider**: Vagrant uses a provider to run the virtual machines. You can use either VirtualBox (free) or VMware (commercial).
 
-    * **VirtualBox (Default)**: Download and install from [virtualbox.org](https://www.virtualbox.org/wiki/Downloads).
-    * **VMware Workstation/Fusion**: If you prefer to use VMware, you must purchase and install the [Vagrant VMware Desktop Plugin](https://www.vagrantup.com/vmware/index.html).
+   * **VirtualBox (Default)**: Download and install from [virtualbox.org](https://www.virtualbox.org/wiki/Downloads).
+   * **VMware Workstation/Fusion**: If you prefer to use VMware, you must purchase and install the [Vagrant VMware Desktop Plugin](https://www.vagrantup.com/vmware/index.html).
 
 ## Setup and Usage
 
@@ -42,10 +42,10 @@ The development environment consists of a small, representative subset of the pr
 
     This command will perform the following actions:
 
-    * Download the `bento/ubuntu-24.04` base image if it's not already on your system.
-    * Create the three virtual machines defined in the `Vagrantfile`.
-    * Configure the private network for the VMs.
-    * Automatically run the `ansible` provisioner, which executes the `vagrant.yml` playbook to configure the VMs.
+   * Download the `bento/ubuntu-24.04` base image if it's not already on your system.
+   * Create the three virtual machines defined in the `Vagrantfile`.
+   * Configure the private network for the VMs.
+   * Automatically run the `ansible` provisioner, which executes the `vagrant.yml` playbook to configure the VMs.
 
 ### Accessing the Machines
 

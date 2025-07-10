@@ -105,7 +105,7 @@ domains:
       backup: true
 ```
 
-2. **Deploy the domain**:
+1. **Deploy the domain**:
 
 ```bash
 # Plan infrastructure changes
@@ -118,7 +118,7 @@ domains:
 ./scripts/deploy-dynamic.sh domain new_service
 ```
 
-3. **Verify deployment**:
+1. **Verify deployment**:
 
 ```bash
 # Check domain status
@@ -203,7 +203,7 @@ ansible atl_dev_servers -i inventories/dynamic.py \
   -a "/opt/atl/scripts/backup.sh"
 ```
 
-2. **Disable and remove**:
+1. **Disable and remove**:
 
 ```bash
 # Disable domain
@@ -214,7 +214,7 @@ ansible atl_dev_servers -i inventories/dynamic.py \
 ./scripts/deploy-dynamic.sh infrastructure apply
 ```
 
-3. **Clean up configuration**:
+1. **Clean up configuration**:
 
 ```yaml
 # Remove from domains.yml

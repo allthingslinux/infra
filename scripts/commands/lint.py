@@ -317,14 +317,21 @@ print('✅ terraform validate passed')
             self.logger.debug("No markdown files found in project directories")
             return True
 
-        # Run pymarkdown on all files
-        cmd = ["uv", "run", "pymarkdown", "scan"] + [str(f) for f in markdown_files]
-        if verbose:
+            # Choose between fix and scan based on fix flag
+        command = "fix" if fix else "scan"
+        cmd = ["uv", "run", "pymarkdown", command] + [str(f) for f in markdown_files]
+
+        # Add verbose flag for scan command (fix doesn't support verbose)
+        if verbose and not fix:
             cmd.append("--verbose")
-        if strict:
+        if strict and not fix:
             cmd.append("--strict")
 
-        return self._run_command(cmd, "pymarkdown")
+        # Handle pymarkdown fix mode differently - it returns non-zero when fixes are made
+        if fix:
+            return self._run_markdown_fix_command(cmd)
+        else:
+            return self._run_command(cmd, "pymarkdown")
 
     def _run_command(
         self, cmd: list[str], tool_name: str, cwd: str | None = None
@@ -347,6 +354,50 @@ print('✅ terraform validate passed')
                 self.logger.error(f"stdout: {e.stdout}")
             if e.stderr:
                 self.logger.error(f"stderr: {e.stderr}")
+            return False
+
+    def _run_markdown_fix_command(self, cmd: list[str]) -> bool:
+        """Run pymarkdown fix command and handle its special exit codes
+
+        pymarkdown fix returns:
+        - 0: No issues found
+        - 1: Issues found but none fixable
+        - 2: Errors occurred during processing
+        - 3: Issues found and fixed
+        """
+        try:
+            run_cwd = self.project_root
+            result = subprocess.run(
+                cmd, cwd=run_cwd, capture_output=True, text=True, check=False
+            )
+
+            # Log output regardless of exit code
+            if result.stdout.strip():
+                self.logger.info(f"pymarkdown output: {result.stdout.strip()}")
+            if result.stderr.strip():
+                self.logger.debug(f"pymarkdown stderr: {result.stderr.strip()}")
+
+            # Handle different exit codes
+            if result.returncode == 0:
+                self.logger.success("No markdown issues found")
+                return True
+            elif result.returncode == 3:
+                self.logger.success("Markdown issues found and fixed successfully")
+                return True
+            elif result.returncode == 1:
+                self.logger.error("Markdown issues found but could not be auto-fixed")
+                return False
+            elif result.returncode == 2:
+                self.logger.error("Errors occurred during markdown processing")
+                return False
+            else:
+                self.logger.error(
+                    f"pymarkdown returned unexpected exit code {result.returncode}"
+                )
+                return False
+
+        except Exception as e:
+            self.logger.error(f"pymarkdown fix failed with exception: {e}")
             return False
 
     def _command_exists(self, command: str) -> bool:

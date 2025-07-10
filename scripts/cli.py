@@ -249,7 +249,9 @@ def apply(
 @click.option(
     "--target",
     "-t",
-    type=click.Choice(["all", "playbooks", "inventories", "roles"]),
+    type=click.Choice(
+        ["all", "playbooks", "inventories", "roles", "python", "markdown"]
+    ),
     default="all",
     help="Target to lint",
 )

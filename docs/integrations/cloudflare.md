@@ -249,7 +249,7 @@ domains:
       - nginx
 ```
 
-2. **Deploy changes**:
+1. **Deploy changes**:
 
 ```bash
 ./scripts/terraform-deploy.sh -e staging -a apply

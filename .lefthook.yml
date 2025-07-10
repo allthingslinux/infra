@@ -246,8 +246,8 @@ pre-commit:
     # === MARKDOWN & DOCS ===
     markdownlint:
       glob: "**/*.md"
-      run: uv run pymarkdown scan {staged_files}
-      stage_fixed: false
+      run: uv run pymarkdown fix {staged_files}
+      stage_fixed: true
 
     # === FINAL VALIDATION ===
     project-structure:
