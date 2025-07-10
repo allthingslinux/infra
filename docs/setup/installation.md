@@ -87,18 +87,24 @@ ansible-galaxy collection list
 
 ### Development Tools
 
-uv automatically installs these, but for manual setup:
+uv automatically installs these Python-managed tools:
 
 ```bash
-# Code quality tools
-pip install ansible-lint yamllint
+# Code quality tools (Python-managed)
+# - ansible-lint, yamllint (YAML linting)
+# - shellcheck-py, shfmt-py (shell script linting & formatting)
+# - commitlint (commit message validation)
+# - ruff (Python linting & formatting)
+# - basedpyright (Python type checking)
 
 # Testing tools
-pip install molecule pytest
+# - molecule, pytest
 
-# Docker support
-# Note: Docker Compose v2 is included with Docker Desktop
-# For Linux: Follow Docker installation guide
+# Git hooks
+# - lefthook (Python-managed)
+
+# All tools are available via: uv run <tool>
+# Example: uv run shellcheck script.sh
 ```
 
 ### External Tools
@@ -232,9 +238,14 @@ ansible-galaxy collection list
 ### Check Tools
 
 ```bash
-# Development tools
-ansible-lint --version
-yamllint --version
+# Development tools (Python-managed)
+uv run ansible-lint --version
+uv run yamllint --version
+uv run shellcheck --version
+uv run shfmt --version
+uv run commitlint --version
+uv run ruff --version
+uv run basedpyright --version
 uv run lefthook --version
 
 # Docker

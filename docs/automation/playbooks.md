@@ -98,7 +98,7 @@ The project uses an optimized lefthook configuration that complements CI workflo
 - **Security Scanning**: Gitleaks for secrets detection
 - **Code Quality**: Basic formatting and syntax checks
 - **YAML Linting**: Ansible and configuration file validation
-- **Shell Scripts**: Formatting and linting with shfmt/shellcheck
+- **Shell Scripts**: Formatting and linting with Python-managed shfmt/shellcheck
 - **Python**: Fast linting and formatting with Ruff
 - **Terraform**: Formatting, validation, and documentation
 - **Project Structure**: Critical file validation
