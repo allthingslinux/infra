@@ -221,7 +221,7 @@ atl utils cleanup-logs --dry-run
 
 Log files are organized by tool type with timestamps:
 
-```
+```text
 logs/
 ├── deploy-20240704_052731.log    # Most recent deploy log
 ├── docs-20240704_052420.log      # Most recent docs log

@@ -512,26 +512,26 @@ ansible database_servers -i inventories/dynamic.py \
 
 ### Development Workflow
 
-1. **Always test locally** with development environment
-2. **Run linting** before every deployment
-3. **Use dry-run** to preview changes
-4. **Deploy to staging** before production
-5. **Monitor logs** during deployment
+1. Always test locally with development environment
+2. Run linting before every deployment
+3. Use dry-run to preview changes
+4. Deploy to staging before production
+5. Monitor logs during deployment
 
 ### Production Safety
 
-1. **Plan first** - Always run `plan` before `apply`
-2. **Backup data** before major changes
-3. **Deploy during maintenance windows**
-4. **Have rollback plan** ready
-5. **Monitor after deployment**
+1. Plan first - Always run `plan` before `apply`
+2. Backup data before major changes
+3. Deploy during maintenance windows
+4. Have rollback plan ready
+5. Monitor after deployment
 
 ### Performance Optimization
 
-1. **Use tags** to deploy only necessary components
-2. **Limit parallelism** for large deployments
-3. **Use local caching** for repeated deployments
-4. **Monitor resource usage** during deployment
+1. Use tags to deploy only necessary components
+2. Limit parallelism for large deployments
+3. Use local caching for repeated deployments
+4. Monitor resource usage during deployment
 
 ## 🚨 Troubleshooting
 

@@ -341,11 +341,14 @@ This infrastructure code is licensed under the MIT License. See [LICENSE](LICENS
 
 ### [All Things Linux](https://allthingslinux.org) • A 501(c)(3) Non-Profit Organization
 
+## About
+
 *Empowering the Linux ecosystem through education, collaboration, and open infrastructure*
 
 ### Development Environment
 
-For local development and testing of Ansible roles, please refer to the [Local Development Environment Guide](./docs/guides/development-environment.md).
+For local development and testing of Ansible roles, please refer to the
+[Local Development Environment Guide](./docs/guides/development-environment.md).
 
 ### Production Deployment
 

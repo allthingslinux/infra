@@ -11,6 +11,7 @@ Deploys the Tux Discord bot as a Docker Compose service
 {!include "../../roles/tux/README.md"!}
 
 **Components**:
+
 - Tasks
 - Templates
 - Meta
@@ -24,6 +25,7 @@ Deploys the Tux Discord bot as a Docker Compose service
 Install and configure Docker
 
 **Components**:
+
 - Tasks
 - Handlers
 - Vars
@@ -41,6 +43,7 @@ Base system configuration and /etc management
 {!include "../../roles/system/README.md"!}
 
 **Components**:
+
 - Tasks
 - Handlers
 - Templates

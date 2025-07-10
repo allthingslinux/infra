@@ -73,7 +73,7 @@ atl lint
 
 ### Configuration Hierarchy
 
-```
+```text
 configs/
 ├── environments.yml    # Environment definitions
 ├── domains.yml        # Domain configurations
@@ -194,7 +194,7 @@ git push origin feature/your-feature-name
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/), automatically validated by [commitlint](https://pypi.org/project/commitlint/):
 
-```
+```text
 <type>(<scope>): <description>
 
 [optional body]
@@ -412,42 +412,48 @@ curl 'http://localhost:9090/api/v1/query?query=up'
 
 ### Development → Staging
 
-1. **Test in Development**
+#### 1. Test in Development
 
-   ```bash
-   # Validate changes
-   cd terraform/environments/development
-   terraform plan && terraform apply
-   ```
+```bash
+# Validate changes
+cd terraform/environments/development
+terraform plan && terraform apply
+```
 
-2. **Update Staging**
+#### 2. Update Staging
 
-   ```bash
-   # Deploy to staging
-   cd ../staging
-   terraform plan && terraform apply
-   ```
+```bash
+# Deploy to staging
+cd ../staging
+terraform plan && terraform apply
+```
 
-3. **Validate Staging**
+#### 3. Validate Staging
 
-   ```bash
-   # Run integration tests
-   ansible-playbook -i inventories/staging.yml playbooks/verification.yml
-   ```
+```bash
+# Run integration tests
+ansible-playbook -i inventories/staging.yml playbooks/verification.yml
+```
 
 ### Staging → Production
 
-1. **Final Review** - All changes peer-reviewed
-2. **Maintenance Window** - Schedule if needed
-3. **Deploy Production**
+#### 1. Final Review
+
+All changes peer-reviewed
+
+#### 2. Maintenance Window
+
+Schedule if needed
+
+#### 3. Deploy Production
 
    ```bash
    cd terraform/environments/production
    terraform plan && terraform apply
    ```
 
-4. **Verify** - Full system validation
-5. **Monitor** - Watch metrics and alerts
+1. **Verify** - Full system validation
+2. **Monitor** - Watch metrics and alerts
 
 ## 🤝 Contributing
 

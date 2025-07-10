@@ -507,4 +507,4 @@ ansible atl_wiki_servers -i inventories/dynamic.py \
 
 ### Resource Optimization
 
-```
+```yaml
