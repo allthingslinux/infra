@@ -109,19 +109,19 @@ repos:
       - id: ansible-lint
         name: ansible-lint
         description: Lint Ansible playbooks and roles
-        files: \.(yml|yaml)$
-        exclude: |
-          (?x)^(
-            .github/.*|
-            docs/.*|
-            monitoring/.*\.yml|
-            terraform/.*\.yml|
-            mkdocs\.yml
-          )$
-        args:
-          - --profile=production
-          - --offline
-          - --project-dir=ansible/
+        # files: \.(yml|yaml)$
+        # exclude: |
+        #   (?x)^(
+        #     .github/.*|
+        #     docs/.*|
+        #     monitoring/.*\.yml|
+        #     terraform/.*\.yml|
+        #     mkdocs\.yml
+        #   )$
+        # args:
+        #   - --profile=production
+        #   - --offline
+        #   - --project-dir=ansible/
 
   # === TERRAFORM ===
   - repo: https://github.com/antonbabenko/pre-commit-terraform

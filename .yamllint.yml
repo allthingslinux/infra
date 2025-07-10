@@ -15,6 +15,10 @@ ignore: |
   node_modules/
   .coverage
   htmlcov/
+  .ansible/
+  logs/
+  tmp/
+  site/
 
 rules:
   # Line length - allow longer lines for readability
