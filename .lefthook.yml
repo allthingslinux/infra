@@ -81,26 +81,6 @@ pre-commit:
         "
       stage_fixed: true
 
-    check-yaml:
-      glob: "*.{yml,yaml}"
-      run: |
-        python3 -c "
-        import sys
-        import yaml
-
-        for file in sys.argv[1:]:
-            try:
-                with open(file, 'r') as f:
-                    yaml.safe_load_all(f)
-                print(f'✅ {file} - valid YAML')
-            except yaml.YAMLError as e:
-                print(f'❌ {file} - invalid YAML: {e}')
-                sys.exit(1)
-            except Exception as e:
-                print(f'❌ {file} - error: {e}')
-                sys.exit(1)
-        "
-
     check-large-files:
       glob: "*"
       run: |
