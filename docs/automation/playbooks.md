@@ -94,7 +94,7 @@ The project uses an optimized lefthook configuration that complements CI workflo
 
 ### Local Development Hooks
 
-- **Commit Message Formatting**: Conventional commits with scoped validation
+- **Commit Message Formatting**: Conventional commits validated by commitlint
 - **Security Scanning**: Gitleaks for secrets detection
 - **Code Quality**: Basic formatting and syntax checks
 - **YAML Linting**: Ansible and configuration file validation

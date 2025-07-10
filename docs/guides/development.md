@@ -192,7 +192,7 @@ git push origin feature/your-feature-name
 
 ### Commit Message Format
 
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
+Follow [Conventional Commits](https://www.conventionalcommits.org/), automatically validated by [commitlint](https://pypi.org/project/commitlint/):
 
 ```
 <type>(<scope>): <description>
