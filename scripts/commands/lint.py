@@ -89,6 +89,7 @@ class LintManager:
             ("Ansible (ansible-lint)", self.run_ansible_lint),
             ("Terraform (terraform)", self.run_terraform_lint),
             ("Shell (shellcheck)", self.run_shell_lint),
+            ("Markdown (pymarkdown)", self.run_markdown_lint),
         ]
 
         for linter_name, linter_func in linters:
@@ -283,6 +284,43 @@ print('✅ terraform validate passed')
 
         return success
 
+    def run_markdown_lint(
+        self, target: str, verbose: bool, fix: bool, strict: bool
+    ) -> bool:
+        """Run pymarkdown linting via uv"""
+        # Find markdown files in project directories
+        project_dirs = [
+            "docs/",
+            "README.md",
+            "*.md",
+            "ansible/",
+            "terraform/",
+        ]
+
+        markdown_files = []
+        for project_dir in project_dirs:
+            if project_dir.endswith(".md"):
+                md_file = self.project_root / project_dir
+                if md_file.exists():
+                    markdown_files.append(md_file)
+            else:
+                dir_path = self.project_root / project_dir
+                if dir_path.exists():
+                    markdown_files.extend(dir_path.rglob("*.md"))
+
+        if not markdown_files:
+            self.logger.debug("No markdown files found in project directories")
+            return True
+
+        # Run pymarkdown on all files
+        cmd = ["uv", "run", "pymarkdown", "scan"] + [str(f) for f in markdown_files]
+        if verbose:
+            cmd.append("--verbose")
+        if strict:
+            cmd.append("--strict")
+
+        return self._run_command(cmd, "pymarkdown")
+
     def _run_command(
         self, cmd: list[str], tool_name: str, cwd: str | None = None
     ) -> bool:
@@ -377,7 +415,9 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 @click.option(
     "--target",
     "-t",
-    type=click.Choice(["all", "playbooks", "inventories", "roles", "python"]),
+    type=click.Choice(
+        ["all", "playbooks", "inventories", "roles", "python", "markdown"]
+    ),
     default="all",
     help="Target to lint (e.g., all, playbooks, inventories, roles, python)",
 )
