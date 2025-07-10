@@ -76,14 +76,17 @@ install_dependencies() {
   success "Dependencies installed successfully!"
 }
 
-# Setup pre-commit hooks
-setup_pre_commit() {
-  log "Setting up pre-commit hooks..."
+# Setup lefthook hooks
+setup_lefthook() {
+  log "Setting up lefthook hooks..."
 
-  # Install pre-commit hooks using uv's virtual environment
-  uv run pre-commit install
-
-  success "Pre-commit hooks installed successfully!"
+  # Install lefthook hooks
+  if command -v uv >/dev/null 2>&1; then
+    uv run lefthook install
+    success "Lefthook hooks installed successfully!"
+  else
+    warning "uv not found. Please install uv first or run scripts/setup/setup-hooks.sh"
+  fi
 }
 
 # Generate requirements.txt for compatibility
@@ -178,8 +181,8 @@ main() {
   # Install dependencies
   install_dependencies
 
-  # Setup pre-commit hooks
-  setup_pre_commit
+  # Setup lefthook hooks
+  setup_lefthook
 
   # Generate compatibility files
   generate_requirements

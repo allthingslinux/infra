@@ -282,8 +282,8 @@ ansible all -i inventories/dynamic.py -m ping
 # Auto-fix common issues
 ./scripts/lint.sh --fix
 
-# Run pre-commit hooks
-pre-commit run --all-files
+# Run lefthook hooks
+uv run lefthook run pre-commit --all-files
 ```
 
 ### Infrastructure Validation

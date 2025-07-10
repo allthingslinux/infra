@@ -88,9 +88,9 @@ The infrastructure project uses a streamlined CI/CD system with three main workf
 - Services: `docker`, `gitops`, `services`
 - Documentation: `docs`, `config`
 
-## Pre-commit Integration
+## Lefthook Integration
 
-The project uses an optimized pre-commit configuration that complements CI workflows:
+The project uses an optimized lefthook configuration that complements CI workflows:
 
 ### Local Development Hooks
 

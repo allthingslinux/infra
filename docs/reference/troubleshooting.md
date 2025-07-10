@@ -285,7 +285,7 @@ ansible all -i inventories/dynamic.py -a "ls -la /problematic/path"
    vim .ansible-lint
    ```
 
-### Pre-commit Hooks
+### Lefthook Hooks
 
 **Solutions:**
 
@@ -293,7 +293,7 @@ ansible all -i inventories/dynamic.py -a "ls -la /problematic/path"
 
    ```bash
    ./scripts/setup-hooks.sh --force
-   pre-commit install
+   uv run lefthook install
    ```
 
 2. **Skip hooks temporarily:**

@@ -64,15 +64,15 @@ Conflicts: Automatic merge conflict detection
 
 ### **Local Development Integration**
 
-Pre-commit hooks complement the CI system:
+Lefthook hooks complement the CI system:
 
 ```bash
-# Install pre-commit hooks
-uv run pre-commit install
+# Install lefthook hooks
+uv run lefthook install
 
 # Run specific checks
-uv run pre-commit run --hook-stage manual ansible-lint
-uv run pre-commit run --all-files
+uv run lefthook run ansible-lint-fast
+uv run lefthook run pre-commit --all-files
 
 # Test before push
 atl quality lint --fix
@@ -101,14 +101,14 @@ uv run ansible-lint --config-file=.ansible-lint ansible/
 
 - **`.ansible-lint`**: Central configuration file (basic profile, offline mode, exclusions)
 - **CI**: Uses config file for comprehensive linting
-- **Pre-commit**: Uses config file but only lints task/handler files for speed
+- **Lefthook**: Uses config file but only lints task/handler files for speed
 - **CLI tool**: Uses config file with target-specific paths
 
-**Pre-commit scope:**
+**Lefthook scope:**
 
 ```bash
-# Pre-commit only lints commonly edited files for speed
-uv run pre-commit run --hook-stage manual ansible-lint
+# Lefthook only lints commonly edited files for speed
+uv run lefthook run ansible-lint-fast
 ```
 
 **CI comprehensive linting:**

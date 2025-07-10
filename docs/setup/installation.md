@@ -91,7 +91,7 @@ uv automatically installs these, but for manual setup:
 
 ```bash
 # Code quality tools
-pip install ansible-lint yamllint pre-commit
+pip install ansible-lint yamllint
 
 # Testing tools
 pip install molecule pytest
@@ -150,20 +150,19 @@ terraform --version
 
 ## 🪝 Development Environment Setup
 
-### Pre-commit Hooks
+### Lefthook Hooks
 
 Set up automated code quality checks:
 
 ```bash
-# Install pre-commit hooks
+# Install lefthook hooks
 ./scripts/setup-hooks.sh
 
 # Or manually:
-pre-commit install
-pre-commit install --hook-type commit-msg
+uv run lefthook install
 
 # Test hooks
-pre-commit run --all-files
+uv run lefthook run pre-commit --all-files
 ```
 
 ### IDE Configuration
@@ -236,7 +235,7 @@ ansible-galaxy collection list
 # Development tools
 ansible-lint --version
 yamllint --version
-pre-commit --version
+uv run lefthook --version
 
 # Docker
 docker --version
@@ -358,4 +357,4 @@ After successful installation:
 - [uv Documentation](https://docs.astral.sh/uv/)
 - [Ansible Installation Guide](https://docs.ansible.com/ansible/latest/installation_guide/)
 - [Docker Installation Guide](https://docs.docker.com/get-docker/)
-- [Pre-commit Documentation](https://pre-commit.com/)
+- [Lefthook Documentation](https://github.com/evilmartians/lefthook)

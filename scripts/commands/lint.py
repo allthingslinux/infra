@@ -351,7 +351,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 - ruff: pyproject.toml
 - yamllint: .yamllint.yml
 - terraform: .tflint.hcl
-- pre-commit: .pre-commit-config.yaml
+    - lefthook: .lefthook.yml
 
 ## Next Steps
 - Review any failed linters above

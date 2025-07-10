@@ -1,0 +1,338 @@
+# Lefthook Configuration for All Things Linux Infrastructure
+# Git hooks manager - replaces pre-commit for better performance
+
+# Skip hooks on merge commits and rebase
+skip_output:
+  - meta
+  - execution
+
+# Pre-commit hooks
+pre-commit:
+  parallel: true
+  commands:
+    # === SECURITY SCANNING ===
+    gitleaks:
+      glob: "*.{yml,yaml,json,py,sh,tf,toml,md}"
+      run: |
+        if command -v gitleaks >/dev/null 2>&1; then
+          gitleaks protect --verbose --redact --staged
+        else
+          echo "⚠️  gitleaks not installed - skipping secrets scanning"
+        fi
+      stage_fixed: false
+
+    # === GENERAL CODE QUALITY ===
+    trailing-whitespace:
+      glob: "*.{py,yml,yaml,json,md,sh,tf}"
+      run: |
+        python3 -c "
+        import sys
+        import re
+        changed = False
+        for file in sys.argv[1:]:
+            try:
+                with open(file, 'r') as f:
+                    content = f.read()
+
+                # Fix trailing whitespace but preserve markdown line breaks
+                lines = content.split('\\n')
+                new_lines = []
+                for line in lines:
+                    if file.endswith('.md') and line.endswith('  '):
+                        new_lines.append(line)  # Keep markdown line breaks
+                    else:
+                        new_lines.append(line.rstrip())
+
+                new_content = '\\n'.join(new_lines)
+                if new_content != content:
+                    changed = True
+                    with open(file, 'w') as f:
+                        f.write(new_content)
+            except Exception as e:
+                print(f'Error processing {file}: {e}')
+                continue
+
+        if changed:
+            print('Fixed trailing whitespace')
+        "
+      stage_fixed: true
+
+    end-of-file-fixer:
+      glob: "*.{py,yml,yaml,json,md,sh,tf}"
+      run: |
+        python3 -c "
+        import sys
+        changed = False
+        for file in sys.argv[1:]:
+            try:
+                with open(file, 'rb') as f:
+                    content = f.read()
+
+                if content and not content.endswith(b'\\n'):
+                    changed = True
+                    with open(file, 'ab') as f:
+                        f.write(b'\\n')
+            except Exception as e:
+                print(f'Error processing {file}: {e}')
+                continue
+
+        if changed:
+            print('Fixed end of file')
+        "
+      stage_fixed: true
+
+    check-yaml:
+      glob: "*.{yml,yaml}"
+      run: |
+        python3 -c "
+        import sys
+        import yaml
+
+        for file in sys.argv[1:]:
+            try:
+                with open(file, 'r') as f:
+                    yaml.safe_load_all(f)
+                print(f'✅ {file} - valid YAML')
+            except yaml.YAMLError as e:
+                print(f'❌ {file} - invalid YAML: {e}')
+                sys.exit(1)
+            except Exception as e:
+                print(f'❌ {file} - error: {e}')
+                sys.exit(1)
+        "
+
+    check-large-files:
+      glob: "*"
+      run: |
+        python3 -c "
+        import sys
+        import os
+
+        max_size = 10 * 1024 * 1024  # 10MB
+        for file in sys.argv[1:]:
+            try:
+                size = os.path.getsize(file)
+                if size > max_size:
+                    print(f'❌ {file} is too large ({size} bytes > {max_size} bytes)')
+                    sys.exit(1)
+            except Exception as e:
+                print(f'Error checking {file}: {e}')
+                continue
+        "
+
+    check-merge-conflict:
+      glob: "*.{py,yml,yaml,json,md,sh,tf}"
+      run: |
+        python3 -c "
+        import sys
+        import re
+
+        conflict_patterns = [
+            r'^<<<<<<<',
+            r'^=======',
+            r'^>>>>>>>'
+        ]
+
+        for file in sys.argv[1:]:
+            try:
+                with open(file, 'r') as f:
+                    lines = f.readlines()
+
+                for i, line in enumerate(lines, 1):
+                    for pattern in conflict_patterns:
+                        if re.match(pattern, line):
+                            print(f'❌ {file}:{i} - merge conflict marker found')
+                            sys.exit(1)
+            except Exception as e:
+                print(f'Error checking {file}: {e}')
+                continue
+        "
+
+    check-toml:
+      glob: "*.toml"
+      run: |
+        python3 -c "
+        import sys
+        import tomllib
+
+        for file in sys.argv[1:]:
+            try:
+                with open(file, 'rb') as f:
+                    tomllib.load(f)
+                print(f'✅ {file} - valid TOML')
+            except Exception as e:
+                print(f'❌ {file} - invalid TOML: {e}')
+                sys.exit(1)
+        "
+
+    check-json:
+      glob: "*.json"
+      run: |
+        python3 -c "
+        import sys
+        import json
+
+        for file in sys.argv[1:]:
+            try:
+                with open(file, 'r') as f:
+                    json.load(f)
+                print(f'✅ {file} - valid JSON')
+            except Exception as e:
+                print(f'❌ {file} - invalid JSON: {e}')
+                sys.exit(1)
+        "
+
+    # === YAML LINTING ===
+    yamllint:
+      glob: "*.{yml,yaml}"
+      run: uv run yamllint -c .yamllint.yml {staged_files}
+
+    # === SHELL SCRIPTS ===
+    shfmt:
+      glob: "*.sh"
+      run: shfmt -w -s -i=2 {staged_files}
+      stage_fixed: true
+
+    shellcheck:
+      glob: "*.sh"
+      run: shellcheck -e SC1091 -e SC2034 {staged_files}
+
+    # === ANSIBLE ===
+    ansible-lint-fast:
+      glob: "ansible/(roles/**/tasks|roles/**/handlers)/*.{yml,yaml}"
+      run: |
+        for file in {staged_files}; do
+          echo "Linting $file"
+          uv run ansible-lint --config-file=.ansible-lint "$file" || exit 1
+        done
+
+    # === TERRAFORM ===
+    terraform-fmt:
+      glob: "terraform/**/*.tf"
+      run: terraform fmt -check -recursive terraform/
+
+    terraform-validate:
+      glob: "terraform/**/*.tf"
+      run: |
+        cd terraform
+        terraform init -backend=false
+        terraform validate -json -no-color
+
+    terraform-tflint:
+      glob: "terraform/**/*.tf"
+      run: |
+        cd terraform
+        tflint --config=../.tflint.hcl --disable-rule=terraform_unused_declarations --recursive
+
+    # === PYTHON ===
+    ruff-check:
+      glob: "scripts/**/*.py"
+      run: uv run ruff check --fix --exit-non-zero-on-fix {staged_files}
+      stage_fixed: true
+
+    ruff-format:
+      glob: "scripts/**/*.py"
+      run: uv run ruff format {staged_files}
+      stage_fixed: true
+
+    basedpyright:
+      glob: "scripts/**/*.py"
+      run: uv run basedpyright scripts/
+
+    # === MARKDOWN & DOCS ===
+    markdownlint:
+      glob: "**/*.md"
+      run: |
+        if command -v markdownlint >/dev/null 2>&1; then
+          markdownlint --fix --disable MD013 MD033 MD041 {staged_files}
+        else
+          echo "⚠️  markdownlint not installed - skipping markdown linting"
+        fi
+      stage_fixed: true
+
+    # === FINAL VALIDATION ===
+    project-structure:
+      glob: "{terraform/**/*,ansible/**/*,configs/**/*,pyproject.toml,.gitignore}"
+      run: |
+        python3 -c "
+        import os
+        import sys
+
+        # Critical files that must exist
+        critical_files = [
+            'terraform/main.tf',
+            'ansible.cfg',
+            'configs/domains.yml',
+            'configs/environments.yml',
+            'pyproject.toml'
+        ]
+
+        missing = [f for f in critical_files if not os.path.exists(f)]
+        if missing:
+            print(f'❌ Critical files missing: {', '.join(missing)}')
+            sys.exit(1)
+
+        # Check for common issues
+        issues = []
+
+        # Check if secrets.example.yml exists but secrets.yml doesn't
+        if os.path.exists('configs/secrets.example.yml') and not os.path.exists('configs/secrets.yml'):
+            issues.append('⚠️  configs/secrets.yml missing (copy from secrets.example.yml)')
+
+        # Check if .env files are ignored
+        if os.path.exists('.env'):
+            issues.append('⚠️  .env file found - ensure it is in .gitignore')
+
+        if issues:
+            print('\\n'.join(issues))
+            print('\\n✅ Project structure validation passed with warnings')
+        else:
+            print('✅ Project structure validation passed')
+        "
+
+# Commit message hook
+commit-msg:
+  commands:
+    conventional-commit:
+      run: |
+        # Check if commit message follows conventional commit format
+        python3 -c "
+        import sys
+        import re
+        import os
+
+        # Get commit message file from environment or argument
+        if len(sys.argv) > 1:
+            msg_file = sys.argv[1]
+        else:
+            msg_file = os.environ.get('LEFTHOOK_COMMIT_MSG_FILE', '.git/COMMIT_EDITMSG')
+
+        # Read commit message from file
+        with open(msg_file, 'r') as f:
+            msg = f.read().strip()
+
+        # Skip merge commits and revert commits
+        if msg.startswith('Merge ') or msg.startswith('Revert '):
+            sys.exit(0)
+
+        # Conventional commit pattern
+        pattern = r'^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9-]+\))?: .{1,72}$'
+
+        if not re.match(pattern, msg.split('\\n')[0]):
+            print('❌ Commit message does not follow conventional commit format')
+            print('Format: <type>(<scope>): <description>')
+            print('Types: build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test')
+            print('Scopes: ansible, terraform, scripts, docs, ci, security, monitoring, infrastructure')
+            print('Example: feat(ansible): add new role for monitoring')
+            sys.exit(1)
+
+        print('✅ Commit message follows conventional commit format')
+        "
+
+# Pre-push hook
+pre-push:
+  commands:
+    comprehensive-lint:
+      run: |
+        echo "Running comprehensive linting before push..."
+        uv run python -m scripts.cli lint --target all

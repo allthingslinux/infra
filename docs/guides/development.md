@@ -25,7 +25,7 @@ uv sync
 # Install Ansible collections
 uv run ansible-galaxy collection install -r ansible/collections/requirements.yml
 
-# Set up pre-commit hooks
+# Set up lefthook hooks
 ./scripts/setup/setup-hooks.sh
 
 # Validate your setup

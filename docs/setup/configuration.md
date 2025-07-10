@@ -127,7 +127,7 @@ You can override settings in your local environment if needed.
 Set up Git hooks for code quality:
 
 ```bash
-# Initialize pre-commit hooks
+# Initialize lefthook hooks
 ./scripts/setup-hooks.sh
 
 # Configure Git user (if not already done)
