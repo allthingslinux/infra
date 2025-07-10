@@ -39,6 +39,7 @@ module-root = ""
 dev = [
     "ansible-dev-tools>=25.5.2",
     "ansible-lint>=25.6.1",
+    "basedpyright>=1.26.2",
     "pre-commit>=4.2.0",
     "ruff>=0.12.2",
 ]
@@ -118,3 +119,38 @@ markers = [
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
 ]
+
+[tool.basedpyright]
+# Target Python 3.13 for type checking
+pythonVersion = "3.13"
+# Include all Python files in the scripts directory
+include = ["scripts"]
+# Exclude common build/cache directories
+exclude = [
+    "**/__pycache__",
+    "**/.pytest_cache",
+    "**/node_modules",
+    ".venv",
+    "tmp",
+    "logs",
+]
+# Type checking configuration
+typeCheckingMode = "basic"
+# Use the virtual environment for imports
+venvPath = "."
+venv = ".venv"
+# Reporting configuration
+reportMissingImports = "error"
+reportMissingTypeStubs = "warning"
+reportImportCycles = "error"
+reportUninitializedInstanceVariable = "warning"
+reportCallInDefaultInitializer = "warning"
+reportUnnecessaryTypeIgnoreComment = "warning"
+reportUnnecessaryIsInstance = "warning"
+reportUnnecessaryComparison = "warning"
+# Disable some overly strict checks for infrastructure code
+reportConstantRedefinition = "none"
+reportIncompatibleMethodOverride = "warning"
+reportIncompatibleVariableOverride = "warning"
+reportUnusedImport = "warning"
+reportUnusedVariable = "warning"

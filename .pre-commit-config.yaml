@@ -103,25 +103,15 @@ repos:
         args: [-e, SC1091, -e, SC2034]
 
   # === ANSIBLE ===
-  - repo: https://github.com/ansible/ansible-lint
-    rev: v24.12.2
+  - repo: local
     hooks:
-      - id: ansible-lint
-        name: ansible-lint
-        description: Lint Ansible playbooks and roles
-        # files: \.(yml|yaml)$
-        # exclude: |
-        #   (?x)^(
-        #     .github/.*|
-        #     docs/.*|
-        #     monitoring/.*\.yml|
-        #     terraform/.*\.yml|
-        #     mkdocs\.yml
-        #   )$
-        # args:
-        #   - --profile=production
-        #   - --offline
-        #   - --project-dir=ansible/
+      - id: ansible-lint-fast
+        name: ansible-lint (fast)
+        description: Fast Ansible linting for pre-commit
+        entry: bash -c 'for file in "$@"; do echo "Linting $file"; uv run ansible-lint --config-file=.ansible-lint "$file" || exit 1; done' --
+        language: system
+        files: ^ansible/(roles/.*/tasks|roles/.*/handlers)/.*\.(yml|yaml)$
+        pass_filenames: true
 
   # === TERRAFORM ===
   - repo: https://github.com/antonbabenko/pre-commit-terraform

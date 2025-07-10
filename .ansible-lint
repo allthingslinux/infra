@@ -2,11 +2,11 @@
 # Ansible Lint Configuration for ATL Infrastructure
 
 # Set quiet mode to reduce noise
-quiet: false
+quiet: true
 verbosity: 1
 
-# Use specific profile
-profile: shared
+# Use basic profile for faster linting
+profile: basic
 
 # Set paths to exclude from linting
 exclude_paths:

@@ -150,10 +150,9 @@ jobs:
       - name: Run Ruff formatter
         run: uv run ruff format scripts/ --check --diff
 
-      - name: Type check with mypy
+      - name: Type check with basedpyright
         run: |
-          uv add --dev mypy types-PyYAML types-requests
-          uv run mypy scripts/ --ignore-missing-imports --show-error-codes
+          uv run basedpyright scripts/
 
   # ==== PYTHON TESTS ====
   python-tests:
