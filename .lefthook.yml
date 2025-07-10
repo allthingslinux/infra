@@ -295,39 +295,16 @@ commit-msg:
   commands:
     conventional-commit:
       run: |
-        # Check if commit message follows conventional commit format
-        python3 -c "
-        import sys
-        import re
-        import os
+        # Use commitlint to validate conventional commit format
+        if [ -n "$LEFTHOOK_COMMIT_MSG_FILE" ]; then
+          MSG_FILE="$LEFTHOOK_COMMIT_MSG_FILE"
+        else
+          MSG_FILE=".git/COMMIT_EDITMSG"
+        fi
 
-        # Get commit message file from environment or argument
-        if len(sys.argv) > 1:
-            msg_file = sys.argv[1]
-        else:
-            msg_file = os.environ.get('LEFTHOOK_COMMIT_MSG_FILE', '.git/COMMIT_EDITMSG')
-
-        # Read commit message from file
-        with open(msg_file, 'r') as f:
-            msg = f.read().strip()
-
-        # Skip merge commits and revert commits
-        if msg.startswith('Merge ') or msg.startswith('Revert '):
-            sys.exit(0)
-
-        # Conventional commit pattern
-        pattern = r'^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9-]+\))?: .{1,72}$'
-
-        if not re.match(pattern, msg.split('\\n')[0]):
-            print('❌ Commit message does not follow conventional commit format')
-            print('Format: <type>(<scope>): <description>')
-            print('Types: build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test')
-            print('Scopes: ansible, terraform, scripts, docs, ci, security, monitoring, infrastructure')
-            print('Example: feat(ansible): add new role for monitoring')
-            sys.exit(1)
-
-        print('✅ Commit message follows conventional commit format')
-        "
+        # Read commit message and validate with commitlint
+        MSG=$(cat "$MSG_FILE")
+        uv run commitlint "$MSG"
 
 # Pre-push hook
 pre-push:
