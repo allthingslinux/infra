@@ -206,10 +206,13 @@ class LintManager:
         # Set up project-specific terraform configuration
         config_file = str(self.project_root / ".terraformrc")
         cache_dir = self.project_root / ".terraform-cache"
+        data_dir = self.project_root / ".terraform"
         cache_dir.mkdir(exist_ok=True)
+        data_dir.mkdir(exist_ok=True)
 
         self.logger.debug(f"Using terraform config: {config_file}")
         self.logger.debug(f"Plugin cache directory: {cache_dir}")
+        self.logger.debug(f"Terraform data directory: {data_dir}")
 
         # Use python-terraform via uv run python for terraform operations
         try:
@@ -222,6 +225,7 @@ from python_terraform import Terraform
 # Set project-specific terraform configuration
 os.environ['TF_CLI_CONFIG_FILE'] = '{config_file}'
 os.environ['TERRAFORM_CACHE_DIR'] = '{cache_dir}'
+os.environ['TF_DATA_DIR'] = '{data_dir}'
 
 tf = Terraform(working_dir='terraform')
 ret_code, stdout, stderr = tf.fmt(check={"True" if not fix else "False"}, recursive=True)
@@ -244,6 +248,7 @@ from python_terraform import Terraform
 # Set project-specific terraform configuration
 os.environ['TF_CLI_CONFIG_FILE'] = '{config_file}'
 os.environ['TERRAFORM_CACHE_DIR'] = '{cache_dir}'
+os.environ['TF_DATA_DIR'] = '{data_dir}'
 
 tf = Terraform(working_dir='terraform')
 # Initialize terraform
@@ -273,6 +278,7 @@ print('✅ terraform validate passed')
         terraform_env = {
             "TF_CLI_CONFIG_FILE": config_file,
             "TERRAFORM_CACHE_DIR": str(cache_dir),
+            "TF_DATA_DIR": str(data_dir),
         }
 
         if not self._run_command(

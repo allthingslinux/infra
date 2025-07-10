@@ -38,32 +38,36 @@ terraform/modules/
     └── ...
 ```
 
-## Plugin Caching Configuration
+## Centralized Configuration
 
 ### Project-Specific Configuration
 
-Terraform is configured to use a project-local plugin cache directory via `.terraformrc`:
+Terraform is configured to use project-local directories for all operations via `.terraformrc`:
 
 ```hcl
 # Project-specific Terraform CLI Configuration
-plugin_cache_dir = ".terraform-cache"
+plugin_cache_dir = "$TERRAFORM_CACHE_DIR"
 ```
 
-This configuration is automatically used by the `atl deploy` command via the `TF_CLI_CONFIG_FILE` environment variable.
+The ATL CLI automatically centralizes all terraform operations in the project root:
+
+- **Plugin Cache**: `.terraform-cache/` (shared across all operations)
+- **Working Directory**: `.terraform/` (terraform state, modules, providers)
 
 ### Benefits
 
-1. **Prevents scattered `.terraform` directories** in modules
-2. **Faster initialization** - plugins are downloaded once and reused
-3. **Saves disk space** - no duplicate plugin downloads
-4. **Cleaner repository** - no `.terraform` directories in modules
+1. **Complete centralization** - All terraform data in project root
+2. **Prevents scattered directories** - No `.terraform` directories anywhere else
+3. **Faster initialization** - plugins are downloaded once and reused
+4. **Saves disk space** - no duplicate plugin downloads
+5. **Cleaner repository** - single location for all terraform data
 
 ### How It Works
 
-1. **First `terraform init`** - Downloads plugins to cache directory
-2. **Subsequent `terraform init`** - Uses cached plugins (much faster)
-3. **Module directories** - Never get `.terraform` directories
-4. **Root directories** - Get `.terraform` directories with symlinks to cache
+1. **TF_CLI_CONFIG_FILE** - Points to project-specific `.terraformrc`
+2. **TERRAFORM_CACHE_DIR** - Points to `.terraform-cache/` in project root
+3. **TF_DATA_DIR** - Points to `.terraform/` in project root
+4. **All operations** - Use centralized directories regardless of working directory
 
 ## Usage Guidelines
 
@@ -116,12 +120,13 @@ ls -la .terraform-cache/
 atl deploy plan -e development --terraform-only
 ```
 
-### Cache Directory Location
+### Directory Locations
 
-The project-specific plugin cache directory is located at:
+All terraform data is centralized in the project root:
 
-- **Project root**: `.terraform-cache/` (excluded from git via .gitignore)
-- **Benefits**: Project isolation, team consistency, no global pollution
+- **Plugin Cache**: `.terraform-cache/` (shared provider plugins)
+- **Working Directory**: `.terraform/` (state, modules, provider installations)
+- **Benefits**: Complete centralization, team consistency, no scattered files
 
 ## Best Practices
 

@@ -37,13 +37,17 @@ class DeploymentManager:
         env = os.environ.copy()
         env["TF_CLI_CONFIG_FILE"] = str(self.project_root / ".terraformrc")
         env["TERRAFORM_CACHE_DIR"] = str(self.project_root / ".terraform-cache")
+        env["TF_DATA_DIR"] = str(self.project_root / ".terraform")
 
-        # Ensure terraform cache directory exists
+        # Ensure terraform directories exist
         cache_dir = self.project_root / ".terraform-cache"
+        data_dir = self.project_root / ".terraform"
         cache_dir.mkdir(exist_ok=True)
+        data_dir.mkdir(exist_ok=True)
 
         self.logger.info(f"Using terraform config: {env['TF_CLI_CONFIG_FILE']}")
         self.logger.info(f"Plugin cache directory: {cache_dir}")
+        self.logger.info(f"Terraform data directory: {data_dir}")
 
         try:
             # Change to terraform directory
