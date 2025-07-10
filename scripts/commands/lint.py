@@ -47,7 +47,7 @@ class LintManager:
             "ruff": "ruff",
             "yamllint": "yamllint",
             "python-terraform": "python",  # python-terraform is a Python package
-            "tflint": "tflint",  # Keep as system binary
+            "tflint": "tflint",  # Available via tflint-py package
             "shellcheck": "shellcheck",
             "shfmt": "shfmt",
         }
@@ -225,16 +225,21 @@ print('✅ terraform validate passed')
             self.logger.error(f"Error running terraform operations: {e}")
             success = False
 
-        # TFLint if available (keep as system binary since no Python equivalent)
-        if self._command_exists("tflint"):
-            if not self._run_command(
-                ["tflint", "--recursive"], "tflint", cwd="terraform"
-            ):
-                success = False
-        else:
-            self.logger.warn(
-                "tflint not available, skipping advanced terraform linting"
-            )
+        # TFLint using uv (tflint-py package)
+        # Use absolute path to config file and --chdir due to tflint v0.47+ changes
+        config_path = str(self.project_root / ".tflint.hcl")
+        if not self._run_command(
+            [
+                "uv",
+                "run",
+                "tflint",
+                f"--config={config_path}",
+                "--chdir=terraform",
+                "--recursive",
+            ],
+            "tflint",
+        ):
+            success = False
 
         return success
 

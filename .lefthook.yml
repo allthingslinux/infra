@@ -224,12 +224,9 @@ pre-commit:
     terraform-tflint:
       glob: "terraform/**/*.tf"
       run: |
-        cd terraform
-        if command -v tflint >/dev/null 2>&1; then
-          tflint --config=../.tflint.hcl --disable-rule=terraform_unused_declarations --recursive
-        else
-          echo "⚠️  tflint not installed - skipping terraform linting"
-        fi
+        # Use absolute path to config file and --chdir due to tflint v0.47+ changes
+        CONFIG_PATH="$PWD/.tflint.hcl"
+        uv run tflint --config="$CONFIG_PATH" --chdir=terraform --disable-rule=terraform_unused_declarations --recursive
 
     # === PYTHON ===
     ruff-check:

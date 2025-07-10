@@ -36,6 +36,9 @@ build-backend = "uv_build"
 module-name = "scripts"
 module-root = ""
 
+[tool.uv.sources]
+tflint-py = { git = "https://github.com/AleksaC/tflint-py.git", rev = "v0.58.0" }
+
 [dependency-groups]
 dev = [
     "ansible-dev-tools>=25.5.2",
@@ -47,6 +50,7 @@ dev = [
     "ruff>=0.12.2",
     "shellcheck-py>=0.10.0.1",
     "shfmt-py>=3.12.0.2",
+    "tflint-py>=0.58.0",
     "yamllint>=1.37.1",
 ]
 docs = [
