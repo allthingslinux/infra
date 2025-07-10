@@ -3,9 +3,11 @@
 Generates infrastructure diagrams using the built-in `terraform graph` command.
 """
 
-import click
 import subprocess
 from pathlib import Path
+
+import click
+
 from ..common.logging import InfraLogger
 
 

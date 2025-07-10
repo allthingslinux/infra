@@ -3,7 +3,6 @@
 import os
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import yaml
 from rich.console import Console
@@ -65,11 +64,11 @@ class ConfigManager:
 
         return True
 
-    def load_domains_config(self) -> Dict:
+    def load_domains_config(self) -> dict:
         """Load domains configuration from YAML file"""
         if self._domains_config is None:
             try:
-                with open(self.domains_file, "r") as f:
+                with open(self.domains_file) as f:
                     self._domains_config = yaml.safe_load(f)
             except Exception as e:
                 self.logger.error(f"Failed to load domains config: {e}")
@@ -77,7 +76,7 @@ class ConfigManager:
 
         return self._domains_config
 
-    def get_enabled_domains(self) -> List[str]:
+    def get_enabled_domains(self) -> list[str]:
         """Get list of enabled domains"""
         config = self.load_domains_config()
         enabled_domains = []
@@ -90,7 +89,7 @@ class ConfigManager:
 
         return enabled_domains
 
-    def get_domain_info(self, domain_key: str) -> Optional[Dict]:
+    def get_domain_info(self, domain_key: str) -> dict | None:
         """Get information about a specific domain"""
         config = self.load_domains_config()
         return config.get("domains", {}).get(domain_key)

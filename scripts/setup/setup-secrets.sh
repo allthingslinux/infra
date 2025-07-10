@@ -19,8 +19,8 @@ echo "================================================"
 
 # Check if we're in the right directory
 if [[ ! -f "$PROJECT_ROOT/configs/secrets.example.yml" ]]; then
-    echo -e "${RED}❌ Error: Run this script from the project root${NC}"
-    exit 1
+  echo -e "${RED}❌ Error: Run this script from the project root${NC}"
+  exit 1
 fi
 
 echo -e "${YELLOW}📋 Setting up secrets for infrastructure...${NC}"
@@ -28,12 +28,12 @@ echo
 
 # 1. Create Ansible secrets file if it doesn't exist
 if [[ ! -f "$PROJECT_ROOT/configs/secrets.yml" ]]; then
-    echo -e "${BLUE}📝 Creating Ansible secrets file...${NC}"
-    cp "$PROJECT_ROOT/configs/secrets.example.yml" "$PROJECT_ROOT/configs/secrets.yml"
-    echo -e "${GREEN}✅ Created configs/secrets.yml${NC}"
-    echo -e "${YELLOW}⚠️  Edit configs/secrets.yml with your actual values${NC}"
+  echo -e "${BLUE}📝 Creating Ansible secrets file...${NC}"
+  cp "$PROJECT_ROOT/configs/secrets.example.yml" "$PROJECT_ROOT/configs/secrets.yml"
+  echo -e "${GREEN}✅ Created configs/secrets.yml${NC}"
+  echo -e "${YELLOW}⚠️  Edit configs/secrets.yml with your actual values${NC}"
 else
-    echo -e "${GREEN}✅ configs/secrets.yml already exists${NC}"
+  echo -e "${GREEN}✅ configs/secrets.yml already exists${NC}"
 fi
 
 # 2. Set up environment variables for Terraform
@@ -45,8 +45,8 @@ ENV_FILE="$HOME/.config/atl-infra/env"
 mkdir -p "$(dirname "$ENV_FILE")"
 
 if [[ ! -f $ENV_FILE ]]; then
-    echo -e "${YELLOW}📝 Creating environment configuration...${NC}"
-    cat >"$ENV_FILE" <<'EOF'
+  echo -e "${YELLOW}📝 Creating environment configuration...${NC}"
+  cat >"$ENV_FILE" <<'EOF'
 # All Things Linux Infrastructure Environment Variables
 # Source this file to set up your development environment
 # Usage: source ~/.config/atl-infra/env
@@ -63,9 +63,9 @@ export TF_WORKSPACE="development"
 
 echo "✅ ATL Infrastructure environment loaded"
 EOF
-    echo -e "${GREEN}✅ Created $ENV_FILE${NC}"
+  echo -e "${GREEN}✅ Created $ENV_FILE${NC}"
 else
-    echo -e "${GREEN}✅ Environment file already exists: $ENV_FILE${NC}"
+  echo -e "${GREEN}✅ Environment file already exists: $ENV_FILE${NC}"
 fi
 
 # 3. Set up shell integration
@@ -74,27 +74,27 @@ echo -e "${BLUE}🐚 Setting up shell integration...${NC}"
 
 SHELL_RC=""
 if [[ -n ${ZSH_VERSION:-} ]]; then
-    SHELL_RC="$HOME/.zshrc"
+  SHELL_RC="$HOME/.zshrc"
 elif [[ -n ${BASH_VERSION:-} ]]; then
-    SHELL_RC="$HOME/.bashrc"
+  SHELL_RC="$HOME/.bashrc"
 fi
 
 if [[ -n $SHELL_RC ]] && [[ -f $SHELL_RC ]]; then
-    if ! grep -q "atl-infra/env" "$SHELL_RC"; then
-        echo
-        echo -e "${YELLOW}Would you like to automatically source the environment file in your shell? (y/N)${NC}"
-        read -r response
-        if [[ $response =~ ^[Yy]$ ]]; then
-            {
-                echo ""
-                echo "# All Things Linux Infrastructure"
-                echo "[ -f ~/.config/atl-infra/env ] && source ~/.config/atl-infra/env"
-            } >>"$SHELL_RC"
-            echo -e "${GREEN}✅ Added auto-sourcing to $SHELL_RC${NC}"
-        fi
-    else
-        echo -e "${GREEN}✅ Shell integration already configured${NC}"
+  if ! grep -q "atl-infra/env" "$SHELL_RC"; then
+    echo
+    echo -e "${YELLOW}Would you like to automatically source the environment file in your shell? (y/N)${NC}"
+    read -r response
+    if [[ $response =~ ^[Yy]$ ]]; then
+      {
+        echo ""
+        echo "# All Things Linux Infrastructure"
+        echo "[ -f ~/.config/atl-infra/env ] && source ~/.config/atl-infra/env"
+      } >>"$SHELL_RC"
+      echo -e "${GREEN}✅ Added auto-sourcing to $SHELL_RC${NC}"
     fi
+  else
+    echo -e "${GREEN}✅ Shell integration already configured${NC}"
+  fi
 fi
 
 # 4. Validate setup
@@ -103,20 +103,20 @@ echo -e "${BLUE}🔍 Validating setup...${NC}"
 
 # Check Ansible secrets
 if [[ -f "$PROJECT_ROOT/configs/secrets.yml" ]]; then
-    if grep -q "your_.*_here" "$PROJECT_ROOT/configs/secrets.yml"; then
-        echo -e "${YELLOW}⚠️  Remember to edit configs/secrets.yml with real values${NC}"
-    else
-        echo -e "${GREEN}✅ Ansible secrets file configured${NC}"
-    fi
+  if grep -q "your_.*_here" "$PROJECT_ROOT/configs/secrets.yml"; then
+    echo -e "${YELLOW}⚠️  Remember to edit configs/secrets.yml with real values${NC}"
+  else
+    echo -e "${GREEN}✅ Ansible secrets file configured${NC}"
+  fi
 fi
 
 # Check environment variables
 if [[ -f $ENV_FILE ]]; then
-    if grep -q "your_.*_here" "$ENV_FILE"; then
-        echo -e "${YELLOW}⚠️  Remember to edit $ENV_FILE with real tokens${NC}"
-    else
-        echo -e "${GREEN}✅ Environment file configured${NC}"
-    fi
+  if grep -q "your_.*_here" "$ENV_FILE"; then
+    echo -e "${YELLOW}⚠️  Remember to edit $ENV_FILE with real tokens${NC}"
+  else
+    echo -e "${GREEN}✅ Environment file configured${NC}"
+  fi
 fi
 
 echo

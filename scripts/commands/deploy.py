@@ -8,7 +8,6 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 
 import click
 from rich.console import Console
@@ -59,7 +58,7 @@ class DeploymentManager:
             if auto_approve and action in ["apply", "destroy"]:
                 cmd.append("-auto-approve")
 
-            result = subprocess.run(cmd, check=True)
+            subprocess.run(cmd, check=True)
 
             self.logger.success(f"Terraform {action} completed successfully")
             return True
@@ -76,7 +75,7 @@ class DeploymentManager:
         target: str,
         verbose: bool = False,
         dry_run: bool = False,
-        domain_name: Optional[str] = None,
+        domain_name: str | None = None,
     ) -> bool:
         """Run Ansible operations"""
         self.logger.info(f"Running Ansible for target: {target}")
@@ -120,7 +119,7 @@ class DeploymentManager:
                 return False
 
             # Run ansible-playbook
-            result = subprocess.run(cmd, check=True)
+            subprocess.run(cmd, check=True)
 
             self.logger.success(f"Ansible {target} completed successfully")
             return True
@@ -153,7 +152,7 @@ class DeploymentManager:
         lint_script = self.project_root / "scripts" / "lint.sh"
 
         try:
-            result = subprocess.run([str(lint_script), "--strict"], check=True)
+            subprocess.run([str(lint_script), "--strict"], check=True)
             self.logger.success("Linting completed successfully")
             return True
 
@@ -334,7 +333,6 @@ def destroy(ctx, auto_approve):
 @click.pass_context
 def config(ctx):
     """Show current configuration"""
-    logger = ctx.obj["logger"]
     deployment_manager = ctx.obj["deployment_manager"]
 
     deployment_manager.config_manager.show_config()
@@ -372,7 +370,6 @@ def disable(ctx, domain_name):
 @click.pass_context
 def check(ctx):
     """Run syntax check only"""
-    logger = ctx.obj["logger"]
     deployment_manager = ctx.obj["deployment_manager"]
 
     if not deployment_manager.run_syntax_check():
@@ -383,7 +380,6 @@ def check(ctx):
 @click.pass_context
 def lint(ctx):
     """Run linting before deployment"""
-    logger = ctx.obj["logger"]
     deployment_manager = ctx.obj["deployment_manager"]
 
     if not deployment_manager.run_lint():

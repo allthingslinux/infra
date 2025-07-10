@@ -6,18 +6,17 @@ This module provides automated documentation generation for infrastructure,
 including Terraform modules, Ansible playbooks, and live infrastructure diagrams.
 """
 
-import click
-import subprocess
 import os
-import sys
-import yaml
-import json
-from pathlib import Path
-from typing import Optional, List
 import shutil
+import subprocess
+import sys
+from pathlib import Path
 
-from ..common.logging import InfraLogger
+import click
+import yaml
+
 from ..common.config import ConfigManager
+from ..common.logging import InfraLogger
 
 
 class DocumentationManager:
@@ -166,7 +165,7 @@ class DocumentationManager:
 
         # Check if terraform.md already exists with proper content
         if tf_doc_path.exists():
-            with open(tf_doc_path, "r") as f:
+            with open(tf_doc_path) as f:
                 content = f.read()
                 # If it already has proper documentation content, don't overwrite
                 if "Terraform Infrastructure" in content and "Overview" in content:
@@ -273,7 +272,7 @@ class DocumentationManager:
 
         for playbook_file in playbooks_dir.glob("*.yml"):
             try:
-                with open(playbook_file, "r") as f:
+                with open(playbook_file) as f:
                     content = list(yaml.safe_load_all(f))
 
                 for play in content:
@@ -349,7 +348,7 @@ class DocumentationManager:
                 # Try to get description from meta/main.yml
                 if meta_file.exists():
                     try:
-                        with open(meta_file, "r") as f:
+                        with open(meta_file) as f:
                             meta = yaml.safe_load(f)
                             if isinstance(meta, dict) and "galaxy_info" in meta:
                                 role_doc["description"] = meta["galaxy_info"].get(

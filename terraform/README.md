@@ -134,7 +134,6 @@ No modules.
 | <a name="input_public_key_path"></a> [public\_key\_path](#input\_public\_key\_path) | Path to the public SSH key | `string` | `"~/.ssh/id_rsa.pub"` | no |
 | <a name="input_server_image"></a> [server\_image](#input\_server\_image) | Server image to use for all servers | `string` | `"ubuntu-24.04"` | no |
 | <a name="input_server_locations"></a> [server\_locations](#input\_server\_locations) | List of server locations | `list(string)` | `[]` | no |
-| <a name="input_ssh_key_name"></a> [ssh\_key\_name](#input\_ssh\_key\_name) | Name of the SSH key to use | `string` | `"default"` | no |
 | <a name="input_subnet_cidr"></a> [subnet\_cidr](#input\_subnet\_cidr) | CIDR block for the subnet | `string` | `"10.0.1.0/24"` | no |
 
 ## Outputs

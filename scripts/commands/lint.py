@@ -10,7 +10,6 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple
 
 import click
 import yaml
@@ -172,7 +171,7 @@ class LintManager:
                 progress.update(task, description=f"Checking {yaml_file.name}")
 
                 try:
-                    with open(yaml_file, "r", encoding="utf-8") as f:
+                    with open(yaml_file, encoding="utf-8") as f:
                         yaml.safe_load(f)
                 except yaml.YAMLError as e:
                     self.logger.error(f"YAML syntax error in {yaml_file}: {e}")
@@ -337,7 +336,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         for old_report in lint_reports[:-5]:  # Keep last 5
             old_report.unlink()
 
-    def _get_target_paths(self, target: str) -> List[str]:
+    def _get_target_paths(self, target: str) -> list[str]:
         """Return a list of paths for the specified target"""
         if target == "all":
             # Let ansible-lint discover all files from the project root
@@ -352,7 +351,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
             self.logger.error(f"Unknown target: {target}")
             return []
 
-    def _find_yaml_files(self) -> List[Path]:
+    def _find_yaml_files(self) -> list[Path]:
         """Find all YAML files in the project"""
         yaml_files = []
         exclude_dirs = {
@@ -374,14 +373,14 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
         return sorted(yaml_files)
 
-    def _find_files_with_trailing_whitespace(self) -> List[Path]:
+    def _find_files_with_trailing_whitespace(self) -> list[Path]:
         """Find files with trailing whitespace"""
         files_with_whitespace = []
 
         for yml_file in self._find_yaml_files():
             try:
-                with open(yml_file, "r", encoding="utf-8") as f:
-                    for line_num, line in enumerate(f, 1):
+                with open(yml_file, encoding="utf-8") as f:
+                    for _line_num, line in enumerate(f, 1):
                         if line.rstrip() != line.rstrip("\n"):
                             files_with_whitespace.append(yml_file)
                             break
@@ -390,7 +389,7 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
         return files_with_whitespace
 
-    def _find_executable_yaml_files(self) -> List[Path]:
+    def _find_executable_yaml_files(self) -> list[Path]:
         """Find YAML files that are executable"""
         executable_files = []
 
@@ -400,12 +399,12 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
         return executable_files
 
-    def _find_shell_scripts(self) -> List[Path]:
+    def _find_shell_scripts(self) -> list[Path]:
         """Find all shell scripts"""
         scripts_dir = self.project_root / "scripts"
         return sorted(scripts_dir.glob("*.sh"))
 
-    def _run_shellcheck(self, script: Path, verbose: bool) -> Tuple[int, int]:
+    def _run_shellcheck(self, script: Path, verbose: bool) -> tuple[int, int]:
         """Run shellcheck on a script and return (errors, warnings)"""
         try:
             subprocess.run(

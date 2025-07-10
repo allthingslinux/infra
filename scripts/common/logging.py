@@ -1,11 +1,9 @@
 """Logging utilities for infrastructure scripts"""
 
 import logging
-import sys
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
-import re
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -48,7 +46,7 @@ class LogCleaner:
         files_removed = 0
 
         # Clean up each tool's logs
-        for tool_name, log_files in log_groups.items():
+        for _tool_name, log_files in log_groups.items():
             # Sort by modification time (newest first)
             log_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
 
@@ -88,7 +86,7 @@ class InfraLogger:
     """Logger for infrastructure operations with rich output"""
 
     def __init__(
-        self, name: str, log_dir: Optional[Path] = None, auto_cleanup: bool = True
+        self, name: str, log_dir: Path | None = None, auto_cleanup: bool = True
     ):
         self.console = Console()
         self.name = name
@@ -181,7 +179,7 @@ class InfraLogger:
 
     @staticmethod
     def cleanup_logs(
-        log_dir: Optional[Path] = None,
+        log_dir: Path | None = None,
         max_files_per_type: int = 5,
         max_age_days: int = 7,
     ):

@@ -32,8 +32,8 @@ No modules.
 | <a name="input_enable_backups"></a> [enable\_backups](#input\_enable\_backups) | Enable backups for servers | `bool` | `true` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | Environment name (production, staging, development) | `string` | n/a | yes |
 | <a name="input_image"></a> [image](#input\_image) | Server image to use | `string` | `"ubuntu-24.04"` | no |
-| <a name="input_location"></a> [location](#input\_location) | Server location | `string` | n/a | yes |
-| <a name="input_name"></a> [name](#input\_name) | Name of the server | `string` | n/a | yes |
+| <a name="input_location"></a> [location](#input\_location) | Server location | `string` | `"nbg1"` | no |
+| <a name="input_name"></a> [name](#input\_name) | Name prefix for compute resources | `string` | n/a | yes |
 | <a name="input_network_id"></a> [network\_id](#input\_network\_id) | ID of the network to attach servers to | `string` | n/a | yes |
 | <a name="input_server_type"></a> [server\_type](#input\_server\_type) | Type of server to create | `string` | `"cx11"` | no |
 | <a name="input_servers"></a> [servers](#input\_servers) | Map of servers to create | <pre>map(object({<br>    server_type = optional(string)<br>    location    = optional(string)<br>    image       = optional(string)<br>    labels      = optional(map(string), {})<br>  }))</pre> | `{}` | no |

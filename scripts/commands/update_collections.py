@@ -8,12 +8,10 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 import click
 from rich.console import Console
 
-from ..common.config import ConfigManager
 from ..common.logging import InfraLogger
 
 
@@ -68,7 +66,7 @@ class CollectionManager:
                 cmd.append("--upgrade")
 
             # Run the command
-            result = subprocess.run(
+            subprocess.run(
                 cmd, check=True, capture_output=True, text=True, cwd=self.project_root
             )
 
@@ -83,7 +81,7 @@ class CollectionManager:
                 self.logger.debug(f"stderr: {e.stderr}")
             return False
 
-    def list_collections(self) -> List[str]:
+    def list_collections(self) -> list[str]:
         """List installed collections"""
         self.logger.info("Currently installed collections:")
 

@@ -12,13 +12,28 @@ profile: production
 exclude_paths:
   - .cache/
   - .github/
+  - .venv/
+  - .vagrant/
+  - .vscode/
   - tmp/
   - logs/
   - .ansible/
   - ansible/inventories/dynamic.py # Dynamic inventory script
 
 # Mock modules and roles for linting
-mock_modules: []
+mock_modules:
+  - file
+  - copy
+  - template
+  - service
+  - yum
+  - apt
+  - command
+  - shell
+  - debug
+  - include_role
+  - import_playbook
+
 mock_roles:
   - docker
   - system

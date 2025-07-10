@@ -4,13 +4,14 @@ Dynamic Ansible Inventory for All Things Linux Infrastructure
 Generates inventory from domains.yml configuration and integrates with Terraform outputs for IP addresses
 """
 
-import json
-import sys
-import yaml
 import argparse
-import subprocess
-from pathlib import Path
+import json
 import os
+import subprocess
+import sys
+from pathlib import Path
+
+import yaml
 
 
 def load_domains_config():
@@ -23,7 +24,7 @@ def load_domains_config():
         sys.exit(1)
 
     try:
-        with open(domains_file, "r") as f:
+        with open(domains_file) as f:
             return yaml.safe_load(f)
     except yaml.YAMLError as e:
         print(f"ERROR: Failed to parse domains.yml: {e}", file=sys.stderr)

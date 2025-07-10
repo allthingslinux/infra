@@ -7,6 +7,12 @@ Unified command-line interface for all infrastructure operations
 import click
 from rich.console import Console
 
+# Import all command modules at the top
+from .commands.deploy import cli as deploy_group
+from .commands.diagrams import cli as diagrams_command
+from .commands.docs import cli as docs_command
+from .commands.lint import cli as lint_command
+from .commands.update_collections import cli as update_collections_command
 
 console = Console()
 
@@ -38,9 +44,6 @@ def infra():
     pass
 
 
-# Import and register deploy commands to infra group
-from .commands.deploy import cli as deploy_group
-
 # Add all deploy commands to the infra group
 for command_name, command in deploy_group.commands.items():
     infra.add_command(command, name=command_name)
@@ -55,9 +58,6 @@ def quality():
     pass
 
 
-# Import and register lint command to quality group
-from .commands.lint import cli as lint_command
-
 quality.add_command(lint_command, name="lint")
 
 
@@ -70,13 +70,7 @@ def docs():
     pass
 
 
-# Import and register docs commands
-from .commands.docs import cli as docs_command
-
 docs.add_command(docs_command, name="build")
-
-from .commands.diagrams import cli as diagrams_command
-
 docs.add_command(diagrams_command, name="diagrams")
 
 
@@ -88,9 +82,6 @@ def utils():
     """Utility and maintenance commands"""
     pass
 
-
-# Import and register utility commands
-from .commands.update_collections import cli as update_collections_command
 
 utils.add_command(update_collections_command, name="update-collections")
 
@@ -115,6 +106,7 @@ utils.add_command(update_collections_command, name="update-collections")
 def cleanup_logs(max_files, max_age, dry_run):
     """Clean up old log files"""
     from pathlib import Path
+
     from .common.logging import LogCleaner
 
     log_dir = Path.cwd() / "logs"
