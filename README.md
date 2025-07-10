@@ -126,7 +126,7 @@ atl <command> --help       # Detailed help for any command
 
 ## 📁 Monorepo Structure
 
-```
+```text
 infra/                           # 🏗️ Infrastructure Monorepo
 ├── 📋 README.md                 # This file
 ├── 🔧 configs/                  # 🎯 Configuration Management
@@ -186,9 +186,9 @@ infra/                           # 🏗️ Infrastructure Monorepo
 │   └── docs.yml                 # Documentation deployment
 │
 └── 🐍 Python Environment        # Development Environment
-    ├── pyproject.toml            # uv dependencies & CLI tools
-├── uv.lock                   # Locked dependencies
-    └── mise.toml                 # Development environment
+    ├── pyproject.toml           # uv dependencies & CLI tools
+    ├── uv.lock                  # Locked dependencies
+    └── .python-version          # Python version file
 ```
 
 ### 🏗️ Architecture Principles
@@ -287,7 +287,7 @@ Comprehensive team access management:
 # Install development dependencies
 uv sync
 
-# Set up pre-commit hooks
+# Set up lefthook (pre-commit) hooks
 ./scripts/setup/setup-hooks.sh
 
 # Validate your setup
