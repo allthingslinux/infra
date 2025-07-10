@@ -159,6 +159,9 @@ override.tf.json
 .terraformrc
 terraform.rc
 
+# Project-specific terraform cache
+.terraform-cache/
+
 # Ansible
 ansible/**/*.retry
 ansible.log

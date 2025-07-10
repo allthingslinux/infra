@@ -28,17 +28,29 @@ class DeploymentManager:
     def run_terraform(
         self, action: str, environment: str, auto_approve: bool = False
     ) -> bool:
-        """Run Terraform operations"""
+        """Run Terraform operations with project-specific configuration"""
         self.logger.info(f"Running Terraform {action} for {environment} environment...")
 
         terraform_dir = self.project_root / "terraform"
+
+        # Set up environment for project-specific terraform configuration
+        env = os.environ.copy()
+        env["TF_CLI_CONFIG_FILE"] = str(self.project_root / ".terraformrc")
+        env["TERRAFORM_CACHE_DIR"] = str(self.project_root / ".terraform-cache")
+
+        # Ensure terraform cache directory exists
+        cache_dir = self.project_root / ".terraform-cache"
+        cache_dir.mkdir(exist_ok=True)
+
+        self.logger.info(f"Using terraform config: {env['TF_CLI_CONFIG_FILE']}")
+        self.logger.info(f"Plugin cache directory: {cache_dir}")
 
         try:
             # Change to terraform directory
             os.chdir(terraform_dir)
 
-            # Initialize Terraform
-            subprocess.run(["terraform", "init"], check=True)
+            # Initialize Terraform with project-specific configuration
+            subprocess.run(["terraform", "init"], check=True, env=env)
 
             # Select or create workspace
             try:
@@ -46,10 +58,11 @@ class DeploymentManager:
                     ["terraform", "workspace", "select", environment],
                     check=True,
                     capture_output=True,
+                    env=env,
                 )
             except subprocess.CalledProcessError:
                 subprocess.run(
-                    ["terraform", "workspace", "new", environment], check=True
+                    ["terraform", "workspace", "new", environment], check=True, env=env
                 )
 
             # Run the terraform action
@@ -58,7 +71,7 @@ class DeploymentManager:
             if auto_approve and action in ["apply", "destroy"]:
                 cmd.append("-auto-approve")
 
-            subprocess.run(cmd, check=True)
+            subprocess.run(cmd, check=True, env=env)
 
             self.logger.success(f"Terraform {action} completed successfully")
             return True

@@ -4,6 +4,7 @@ All Things Linux Infrastructure Linting Script
 Unified linting orchestrator that delegates to specialized tools
 """
 
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -199,15 +200,29 @@ class LintManager:
     def run_terraform_lint(
         self, target: str, verbose: bool, fix: bool, strict: bool
     ) -> bool:
-        """Run terraform fmt, validate, and tflint using python-terraform and uv"""
+        """Run terraform fmt, validate, and tflint using python-terraform and uv with project-specific config"""
         success = True
+
+        # Set up project-specific terraform configuration
+        config_file = str(self.project_root / ".terraformrc")
+        cache_dir = self.project_root / ".terraform-cache"
+        cache_dir.mkdir(exist_ok=True)
+
+        self.logger.debug(f"Using terraform config: {config_file}")
+        self.logger.debug(f"Plugin cache directory: {cache_dir}")
 
         # Use python-terraform via uv run python for terraform operations
         try:
             # Terraform fmt
             fmt_script = f"""
 import sys
+import os
 from python_terraform import Terraform
+
+# Set project-specific terraform configuration
+os.environ['TF_CLI_CONFIG_FILE'] = '{config_file}'
+os.environ['TERRAFORM_CACHE_DIR'] = '{cache_dir}'
+
 tf = Terraform(working_dir='terraform')
 ret_code, stdout, stderr = tf.fmt(check={"True" if not fix else "False"}, recursive=True)
 if ret_code != 0:
@@ -221,9 +236,15 @@ print('✅ terraform fmt passed')
                 success = False
 
             # Terraform validate
-            validate_script = """
+            validate_script = f"""
 import sys
+import os
 from python_terraform import Terraform
+
+# Set project-specific terraform configuration
+os.environ['TF_CLI_CONFIG_FILE'] = '{config_file}'
+os.environ['TERRAFORM_CACHE_DIR'] = '{cache_dir}'
+
 tf = Terraform(working_dir='terraform')
 # Initialize terraform
 ret_code, stdout, stderr = tf.init(backend=False)
@@ -249,6 +270,11 @@ print('✅ terraform validate passed')
         # TFLint using uv (tflint-py package)
         # Use absolute path to config file and --chdir due to tflint v0.47+ changes
         config_path = str(self.project_root / ".tflint.hcl")
+        terraform_env = {
+            "TF_CLI_CONFIG_FILE": config_file,
+            "TERRAFORM_CACHE_DIR": str(cache_dir),
+        }
+
         if not self._run_command(
             [
                 "uv",
@@ -259,6 +285,7 @@ print('✅ terraform validate passed')
                 "--recursive",
             ],
             "tflint",
+            env=terraform_env,
         ):
             success = False
 
@@ -362,13 +389,28 @@ print('✅ terraform validate passed')
             return self._run_command(cmd, "pymarkdown")
 
     def _run_command(
-        self, cmd: list[str], tool_name: str, cwd: str | None = None
+        self,
+        cmd: list[str],
+        tool_name: str,
+        cwd: str | None = None,
+        env: dict | None = None,
     ) -> bool:
         """Run a command and return success status"""
         try:
             run_cwd = self.project_root / cwd if cwd else self.project_root
+
+            # Set up environment - start with current environment and add custom env vars
+            run_env = os.environ.copy()
+            if env:
+                run_env.update(env)
+
             result = subprocess.run(
-                cmd, cwd=run_cwd, capture_output=True, text=True, check=True
+                cmd,
+                cwd=run_cwd,
+                capture_output=True,
+                text=True,
+                check=True,
+                env=run_env,
             )
 
             if result.stdout.strip():
