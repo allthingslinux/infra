@@ -106,9 +106,3 @@ variable "csr_content" {
 
 # Note: Domain configurations are now defined in domains.yml
 # This provides a single source of truth for all domain infrastructure
-
-variable "server_locations" {
-  description = "List of server locations"
-  type        = list(string)
-  default     = []
-}
