@@ -103,11 +103,13 @@ repos:
         args: [-e, SC1091, -e, SC2034]
 
   # === ANSIBLE ===
+  # Note: Pre-commit only lints task/handler files for speed
+  # Full ansible-lint runs in CI and via `scripts/cli.py lint`
   - repo: local
     hooks:
       - id: ansible-lint-fast
         name: ansible-lint (fast)
-        description: Fast Ansible linting for pre-commit
+        description: Fast Ansible linting for pre-commit (tasks/handlers only)
         entry: bash -c 'for file in "$@"; do echo "Linting $file"; uv run ansible-lint --config-file=.ansible-lint "$file" || exit 1; done' --
         language: system
         files: ^ansible/(roles/.*/tasks|roles/.*/handlers)/.*\.(yml|yaml)$

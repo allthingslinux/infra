@@ -1,8 +1,8 @@
 ---
 # Ansible Lint Configuration for ATL Infrastructure
 
-# Set quiet mode to reduce noise
-quiet: true
+# Set quiet mode to reduce noise (can be overridden by CLI args)
+quiet: false
 verbosity: 1
 
 # Use basic profile for faster linting

@@ -163,7 +163,7 @@ class LintManager:
             self.logger.error("ansible-lint not available")
             return False
 
-        cmd = ["ansible-lint"]
+        cmd = ["ansible-lint", "--config-file=.ansible-lint"]
 
         if verbose:
             cmd.append("-v")
@@ -172,15 +172,16 @@ class LintManager:
         if strict:
             cmd.append("--strict")
 
-        # Let ansible-lint discover files based on .ansible-lint config
-        # Only add specific paths for targeted linting
+        # Add specific paths for targeted linting
         if target == "playbooks":
             cmd.append("ansible/playbooks/")
         elif target == "roles":
             cmd.append("ansible/roles/")
         elif target == "inventories":
             cmd.append("ansible/inventories/")
-        # For "all", let ansible-lint discover everything
+        else:
+            # For "all", scan the entire ansible directory
+            cmd.append("ansible/")
 
         return self._run_command(cmd, "ansible-lint")
 

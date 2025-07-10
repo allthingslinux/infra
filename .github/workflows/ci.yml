@@ -290,8 +290,7 @@ jobs:
         run: uv run ansible-galaxy collection install -r ansible/requirements.yml
 
       - name: Run ansible-lint
-        working-directory: ansible
-        run: uv run ansible-lint --show-relpath .
+        run: uv run ansible-lint --config-file=.ansible-lint ansible/
 
       - name: Run YAML lint
         run: uv run yamllint ansible/ configs/

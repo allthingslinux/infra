@@ -78,6 +78,46 @@ uv run pre-commit run --all-files
 atl quality lint --fix
 ```
 
+### Ansible Linting
+
+The project uses a unified ansible-lint configuration:
+
+```bash
+# Run full ansible-lint (all files)
+uv run python -m scripts.cli lint --target ansible
+
+# Run on specific components
+uv run python -m scripts.cli lint --target playbooks
+uv run python -m scripts.cli lint --target roles
+
+# Auto-fix issues where possible
+uv run python -m scripts.cli lint --fix
+
+# Manual ansible-lint
+uv run ansible-lint --config-file=.ansible-lint ansible/
+```
+
+**Configuration layers:**
+
+- **`.ansible-lint`**: Central configuration file (basic profile, offline mode, exclusions)
+- **CI**: Uses config file for comprehensive linting
+- **Pre-commit**: Uses config file but only lints task/handler files for speed
+- **CLI tool**: Uses config file with target-specific paths
+
+**Pre-commit scope:**
+
+```bash
+# Pre-commit only lints commonly edited files for speed
+uv run pre-commit run --hook-stage manual ansible-lint
+```
+
+**CI comprehensive linting:**
+
+```bash
+# CI lints all ansible files using the same config
+uv run ansible-lint --config-file=.ansible-lint ansible/
+```
+
 ## 🎯 **Unified ATL CLI**
 
 ### Overview
@@ -241,4 +281,4 @@ atl <group> <command> --help      # Show detailed command help
 
 The CLI is designed for discoverability:
 
-1. **Start with `atl info`
+1. **Start with `
