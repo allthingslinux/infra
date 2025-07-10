@@ -25,7 +25,7 @@ pre-commit:
     trailing-whitespace:
       glob: "*.{py,yml,yaml,json,md,sh,tf}"
       run: |
-        python3 -c "
+        uv run python -c "
         import sys
         import re
         changed = False
@@ -60,7 +60,7 @@ pre-commit:
     end-of-file-fixer:
       glob: "*.{py,yml,yaml,json,md,sh,tf}"
       run: |
-        python3 -c "
+        uv run python -c "
         import sys
         changed = False
         for file in sys.argv[1:]:
@@ -84,7 +84,7 @@ pre-commit:
     check-large-files:
       glob: "*"
       run: |
-        python3 -c "
+        uv run python -c "
         import sys
         import os
 
@@ -103,7 +103,7 @@ pre-commit:
     check-merge-conflict:
       glob: "*.{py,yml,yaml,json,md,sh,tf}"
       run: |
-        python3 -c "
+        uv run python -c "
         import sys
         import re
 
@@ -131,7 +131,7 @@ pre-commit:
     check-toml:
       glob: "*.toml"
       run: |
-        python3 -c "
+        uv run python -c "
         import sys
         import tomllib
 
@@ -148,7 +148,7 @@ pre-commit:
     check-json:
       glob: "*.json"
       run: |
-        python3 -c "
+        uv run python -c "
         import sys
         import json
 
@@ -189,20 +189,47 @@ pre-commit:
     # === TERRAFORM ===
     terraform-fmt:
       glob: "terraform/**/*.tf"
-      run: terraform fmt -check -recursive terraform/
+      run: |
+        cd terraform
+        uv run python -c "
+        from python_terraform import Terraform
+        tf = Terraform(working_dir='.')
+        ret_code, stdout, stderr = tf.fmt(check=True, recursive=True)
+        if ret_code != 0:
+            print(stderr)
+            exit(1)
+        print('✅ terraform fmt passed')
+        "
 
     terraform-validate:
       glob: "terraform/**/*.tf"
       run: |
         cd terraform
-        terraform init -backend=false
-        terraform validate -json -no-color
+        uv run python -c "
+        from python_terraform import Terraform
+        tf = Terraform(working_dir='.')
+        # Initialize terraform
+        ret_code, stdout, stderr = tf.init(backend=False)
+        if ret_code != 0:
+            print(stderr)
+            exit(1)
+        # Validate terraform
+        ret_code, stdout, stderr = tf.validate(json=True, no_color=True)
+        if ret_code != 0:
+            print(stderr)
+            exit(1)
+        print('✅ terraform validate passed')
+        "
 
     terraform-tflint:
       glob: "terraform/**/*.tf"
       run: |
         cd terraform
-        tflint --config=../.tflint.hcl --disable-rule=terraform_unused_declarations --recursive
+        if command -v tflint >/dev/null 2>&1; then
+          tflint --config=../.tflint.hcl --disable-rule=terraform_unused_declarations --recursive
+        else
+          echo "⚠️  tflint not installed - skipping terraform linting"
+        fi
 
     # === PYTHON ===
     ruff-check:
@@ -222,19 +249,14 @@ pre-commit:
     # === MARKDOWN & DOCS ===
     markdownlint:
       glob: "**/*.md"
-      run: |
-        if command -v markdownlint >/dev/null 2>&1; then
-          markdownlint --fix --disable MD013 MD033 MD041 {staged_files}
-        else
-          echo "⚠️  markdownlint not installed - skipping markdown linting"
-        fi
-      stage_fixed: true
+      run: uv run mdformat --check {staged_files}
+      stage_fixed: false
 
     # === FINAL VALIDATION ===
     project-structure:
       glob: "{terraform/**/*,ansible/**/*,configs/**/*,pyproject.toml,.gitignore}"
       run: |
-        python3 -c "
+        uv run python -c "
         import os
         import sys
 

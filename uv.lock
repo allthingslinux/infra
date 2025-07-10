@@ -650,6 +650,7 @@ dependencies = [
     { name = "docker" },
     { name = "httpx" },
     { name = "jinja2" },
+    { name = "python-terraform" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "rich" },
@@ -694,6 +695,7 @@ requires-dist = [
     { name = "docker", specifier = ">=7.1.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "jinja2", specifier = ">=3.1.6" },
+    { name = "python-terraform", specifier = ">=0.10.1" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "requests", specifier = ">=2.32.4" },
     { name = "rich", specifier = ">=14.0.0" },
@@ -1363,6 +1365,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/f1/3e/ba0dc69c9f4e0aeb2
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7b/5b/6666ed5a0d3ce4d5444af62e373d5ba8ab253a03487c86f2f9f1078e7c31/python_gnupg-0.5.4-py2.py3-none-any.whl", hash = "sha256:40ce25cde9df29af91fe931ce9df3ce544e14a37f62b13ca878c897217b2de6c", size = 21730, upload-time = "2025-01-07T11:58:32.249Z" },
 ]
+
+[[package]]
+name = "python-terraform"
+version = "0.10.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/a2/10fa8a5d79096f96f0a1b9917fe3038b453e40b39cc22e07410a365f2dc3/python-terraform-0.10.1.tar.gz", hash = "sha256:0f4d1648c4fec61d5aa53142558ba3761c8f9ee7acce57505a1245d4dd85f5cf", size = 8746, upload-time = "2019-06-21T07:03:00.906Z" }
 
 [[package]]
 name = "pywin32"

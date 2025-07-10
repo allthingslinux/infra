@@ -42,11 +42,12 @@ class LintManager:
         self.logger.info("Checking linting tool prerequisites...")
 
         tools = {
+            "uv": "uv",  # Main dependency manager
             "ansible-lint": "ansible-lint",
             "ruff": "ruff",
             "yamllint": "yamllint",
-            "terraform": "terraform",
-            "tflint": "tflint",
+            "python-terraform": "python",  # python-terraform is a Python package
+            "tflint": "tflint",  # Keep as system binary
             "shellcheck": "shellcheck",
             "shfmt": "shfmt",
         }
@@ -112,12 +113,8 @@ class LintManager:
     def run_ruff_lint(
         self, target: str, verbose: bool, fix: bool, strict: bool
     ) -> bool:
-        """Run ruff Python linting"""
-        if not self._command_exists("ruff"):
-            self.logger.warn("ruff not available, skipping Python linting")
-            return True
-
-        cmd = ["ruff", "check"]
+        """Run ruff Python linting via uv"""
+        cmd = ["uv", "run", "ruff", "check"]
         if fix:
             cmd.append("--fix")
         if verbose:
@@ -134,11 +131,7 @@ class LintManager:
     def run_yaml_lint(
         self, target: str, verbose: bool, fix: bool, strict: bool
     ) -> bool:
-        """Run yamllint YAML linting"""
-        if not self._command_exists("yamllint"):
-            self.logger.warn("yamllint not available, skipping YAML linting")
-            return True
-
+        """Run yamllint YAML linting via uv"""
         # Only scan project directories, not glob patterns
         paths_to_scan = [
             "ansible/",
@@ -149,7 +142,7 @@ class LintManager:
             ".github/",
         ]
 
-        cmd = ["yamllint"] + paths_to_scan
+        cmd = ["uv", "run", "yamllint"] + paths_to_scan
         if strict:
             cmd.append("--strict")
 
@@ -158,12 +151,8 @@ class LintManager:
     def run_ansible_lint(
         self, target: str, verbose: bool, fix: bool, strict: bool
     ) -> bool:
-        """Run ansible-lint using .ansible-lint configuration"""
-        if not self._command_exists("ansible-lint"):
-            self.logger.error("ansible-lint not available")
-            return False
-
-        cmd = ["ansible-lint", "--config-file=.ansible-lint"]
+        """Run ansible-lint using .ansible-lint configuration via uv"""
+        cmd = ["uv", "run", "ansible-lint", "--config-file=.ansible-lint"]
 
         if verbose:
             cmd.append("-v")
@@ -188,48 +177,71 @@ class LintManager:
     def run_terraform_lint(
         self, target: str, verbose: bool, fix: bool, strict: bool
     ) -> bool:
-        """Run terraform fmt, validate, and tflint"""
-        if not self._command_exists("terraform"):
-            self.logger.warn("terraform not available, skipping Terraform linting")
-            return True
-
+        """Run terraform fmt, validate, and tflint using python-terraform and uv"""
         success = True
 
-        # Terraform fmt
-        fmt_cmd = ["terraform", "fmt", "-check", "-recursive"]
-        if fix:
-            fmt_cmd.remove("-check")  # Remove check flag to actually format
+        # Use python-terraform via uv run python for terraform operations
+        try:
+            # Terraform fmt
+            fmt_script = f"""
+import sys
+from python_terraform import Terraform
+tf = Terraform(working_dir='terraform')
+ret_code, stdout, stderr = tf.fmt(check={"True" if not fix else "False"}, recursive=True)
+if ret_code != 0:
+    print(stderr)
+    sys.exit(1)
+print('✅ terraform fmt passed')
+"""
+            if not self._run_command(
+                ["uv", "run", "python", "-c", fmt_script], "terraform fmt"
+            ):
+                success = False
 
-        if not self._run_command(fmt_cmd, "terraform fmt", cwd="terraform"):
+            # Terraform validate
+            validate_script = """
+import sys
+from python_terraform import Terraform
+tf = Terraform(working_dir='terraform')
+# Initialize terraform
+ret_code, stdout, stderr = tf.init(backend=False)
+if ret_code != 0:
+    print(stderr)
+    sys.exit(1)
+# Validate terraform
+ret_code, stdout, stderr = tf.validate()
+if ret_code != 0:
+    print(stderr)
+    sys.exit(1)
+print('✅ terraform validate passed')
+"""
+            if not self._run_command(
+                ["uv", "run", "python", "-c", validate_script], "terraform validate"
+            ):
+                success = False
+
+        except Exception as e:
+            self.logger.error(f"Error running terraform operations: {e}")
             success = False
 
-        # Terraform validate
-        if not self._run_command(
-            ["terraform", "init", "-backend=false"], "terraform init", cwd="terraform"
-        ):
-            success = False
-
-        if not self._run_command(
-            ["terraform", "validate"], "terraform validate", cwd="terraform"
-        ):
-            success = False
-
-        # TFLint if available
+        # TFLint if available (keep as system binary since no Python equivalent)
         if self._command_exists("tflint"):
             if not self._run_command(
                 ["tflint", "--recursive"], "tflint", cwd="terraform"
             ):
                 success = False
+        else:
+            self.logger.warn(
+                "tflint not available, skipping advanced terraform linting"
+            )
 
         return success
 
     def run_shell_lint(
         self, target: str, verbose: bool, fix: bool, strict: bool
     ) -> bool:
-        """Run shellcheck and shfmt on shell scripts"""
-        if not (self._command_exists("shellcheck") or self._command_exists("shfmt")):
-            self.logger.warn("shellcheck/shfmt not available, skipping shell linting")
-            return True
+        """Run shellcheck and shfmt on shell scripts using uv"""
+        success = True
 
         # Find shell scripts only in project directories, not third-party collections
         project_dirs = [
@@ -252,26 +264,22 @@ class LintManager:
             self.logger.debug("No shell scripts found in project directories")
             return True
 
-        success = True
+        # Run shellcheck via uv
+        for script in shell_scripts:
+            cmd = ["uv", "run", "shellcheck", str(script)]
+            if not self._run_command(cmd, f"shellcheck {script.name}"):
+                success = False
 
-        # Run shellcheck
-        if self._command_exists("shellcheck"):
-            for script in shell_scripts:
-                cmd = ["shellcheck", str(script)]
-                if not self._run_command(cmd, f"shellcheck {script.name}"):
-                    success = False
+        # Run shfmt via uv
+        for script in shell_scripts:
+            cmd = ["uv", "run", "shfmt", "-i", "2", "-s"]
+            if fix:
+                cmd.extend(["-w", str(script)])
+            else:
+                cmd.extend(["-d", str(script)])
 
-        # Run shfmt
-        if self._command_exists("shfmt"):
-            for script in shell_scripts:
-                cmd = ["shfmt", "-i", "2", "-s"]
-                if fix:
-                    cmd.extend(["-w", str(script)])
-                else:
-                    cmd.extend(["-d", str(script)])
-
-                if not self._run_command(cmd, f"shfmt {script.name}"):
-                    success = False
+            if not self._run_command(cmd, f"shfmt {script.name}"):
+                success = False
 
         return success
 
