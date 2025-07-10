@@ -256,20 +256,12 @@ def apply(
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 @click.option("--fix", "-f", is_flag=True, help="Try to auto-fix issues where possible")
 @click.option("--strict", is_flag=True, help="Use strict mode (exit on warnings)")
-@click.option(
-    "--format",
-    type=click.Choice(["auto", "json", "codeclimate", "sarif"]),
-    default="auto",
-    help="Output format for ansible-lint",
-)
-def lint(target, verbose, fix, strict, format):
+def lint(target, verbose, fix, strict):
     """Quick lint command (equivalent to 'atl quality lint')"""
     from .commands.lint import cli as lint_cli
 
     ctx = click.Context(lint_cli)
-    ctx.invoke(
-        lint_cli, target=target, verbose=verbose, fix=fix, strict=strict, format=format
-    )
+    ctx.invoke(lint_cli, target=target, verbose=verbose, fix=fix, strict=strict)
 
 
 # === Help and Info Commands ===
