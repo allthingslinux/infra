@@ -332,7 +332,14 @@ print('✅ terraform validate passed')
             else:
                 dir_path = self.project_root / project_dir
                 if dir_path.exists():
-                    markdown_files.extend(dir_path.rglob("*.md"))
+                    # For terraform directory, exclude .terraform subdirectory
+                    if project_dir == "terraform/":
+                        for md_file in dir_path.rglob("*.md"):
+                            # Skip files in .terraform directory
+                            if ".terraform" not in str(md_file):
+                                markdown_files.append(md_file)
+                    else:
+                        markdown_files.extend(dir_path.rglob("*.md"))
 
         if not markdown_files:
             self.logger.debug("No markdown files found in project directories")
