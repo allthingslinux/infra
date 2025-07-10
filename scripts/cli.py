@@ -250,7 +250,17 @@ def apply(
     "--target",
     "-t",
     type=click.Choice(
-        ["all", "playbooks", "inventories", "roles", "python", "markdown"]
+        [
+            "all",
+            "playbooks",
+            "inventories",
+            "roles",
+            "python",
+            "markdown",
+            "yaml",
+            "terraform",
+            "shell",
+        ]
     ),
     default="all",
     help="Target to lint",

@@ -99,6 +99,12 @@ class LintManager:
             linters = [("Python (ruff)", self.run_ruff_lint)]
         elif target == "markdown":
             linters = [("Markdown (pymarkdown)", self.run_markdown_lint)]
+        elif target == "yaml":
+            linters = [("YAML (yamllint)", self.run_yaml_lint)]
+        elif target == "terraform":
+            linters = [("Terraform (terraform)", self.run_terraform_lint)]
+        elif target == "shell":
+            linters = [("Shell (shellcheck)", self.run_shell_lint)]
         elif target in ["playbooks", "inventories", "roles"]:
             # These are Ansible-specific targets
             linters = [("Ansible (ansible-lint)", self.run_ansible_lint)]
@@ -487,10 +493,20 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     "--target",
     "-t",
     type=click.Choice(
-        ["all", "playbooks", "inventories", "roles", "python", "markdown"]
+        [
+            "all",
+            "playbooks",
+            "inventories",
+            "roles",
+            "python",
+            "markdown",
+            "yaml",
+            "terraform",
+            "shell",
+        ]
     ),
     default="all",
-    help="Target to lint (e.g., all, playbooks, inventories, roles, python)",
+    help="Target to lint (all, playbooks, inventories, roles, python, markdown, yaml, terraform, shell)",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 @click.option("--fix", "-f", is_flag=True, help="Try to auto-fix issues where possible")
