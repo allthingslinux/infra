@@ -331,9 +331,7 @@ class LintManager:
         command = "fix" if fix else "scan"
         cmd = ["uv", "run", "pymarkdown", command] + [str(f) for f in markdown_files]
 
-        # Add verbose flag for scan command (fix doesn't support verbose)
-        if verbose and not fix:
-            cmd.append("--verbose")
+        # Add strict flag for scan command (fix doesn't support strict)
         if strict and not fix:
             cmd.append("--strict")
 
