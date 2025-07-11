@@ -6,7 +6,7 @@
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![Infrastructure as Code](https://img.shields.io/badge/Infrastructure-as%20Code-green?style=for-the-badge)
 
-## Infrastructure-as-Code monorepo for the All Things Linux 501(c)(3) non-profit organization
+## Infrastructure-as-Code monorepo for the All Things Linux 501(c)(3) non-profit
 
 [🚀 Quick Start](#-quick-start) • [📁 Structure](#-monorepo-structure) • [🔧 Development](#-development) • [📚 Documentation](docs/)
 

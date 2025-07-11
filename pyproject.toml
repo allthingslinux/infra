@@ -164,3 +164,18 @@ reportIncompatibleMethodOverride = "warning"
 reportIncompatibleVariableOverride = "warning"
 reportUnusedImport = "warning"
 reportUnusedVariable = "warning"
+
+[tool.pymarkdown]
+# Configuration for auto-generated and infrastructure documentation
+# Higher line length limit for auto-generated terraform documentation
+plugins.md013.line_length = 500
+plugins.md013.code_blocks = false
+plugins.md013.tables = false
+# Allow all HTML elements for auto-generated documentation
+plugins.md033.allowed_elements = "*"
+# Configure emphasis usage
+plugins.md036.punctuation = ".,;:!?。，；：！？"
+# Allow duplicate headers in different sections
+plugins.md024.siblings_only = true
+# Disable problematic rules for infrastructure documentation
+disable_rules = ["MD033", "MD036"]

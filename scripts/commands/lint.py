@@ -329,7 +329,9 @@ class LintManager:
 
             # Choose between fix and scan based on fix flag
         command = "fix" if fix else "scan"
-        cmd = ["uv", "run", "pymarkdown", command] + [str(f) for f in markdown_files]
+        cmd = ["uv", "run", "pymarkdown", "-d", "MD033,MD036", command] + [
+            str(f) for f in markdown_files
+        ]
 
         # Add strict flag for scan command (fix doesn't support strict)
         if strict and not fix:
