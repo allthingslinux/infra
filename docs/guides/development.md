@@ -487,7 +487,7 @@ Schedule if needed
 
 ### Documentation
 
-- [Architecture Overview](../architecture/overview.md)
+- [Architecture Overview](../infrastructure/overview.md)
 - [Deployment Guide](deployment.md)
 - [Troubleshooting](../reference/troubleshooting.md)
 - [Commands Reference](../reference/commands.md)

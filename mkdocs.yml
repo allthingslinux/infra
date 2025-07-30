@@ -11,6 +11,7 @@ nav:
   - "Infrastructure":
       - "Overview": "infrastructure/overview.md"
       - "Terraform Modules": "infrastructure/terraform.md"
+      - "Terraform Configuration": "infrastructure/terraform-configuration.md"
       - "Architecture Diagrams": "infrastructure/diagrams.md"
   - "Automation":
       - "Playbooks": "automation/playbooks.md"
@@ -20,6 +21,8 @@ nav:
   - "Guides":
       - "Deployment": "guides/deployment.md"
       - "Development": "guides/development.md"
+      - "Development Environment": "guides/development-environment.md"
+      - "Secrets Management": "guides/secrets-management.md"
       - "Security": "guides/security.md"
       - "Infrastructure Guide": "guides/infrastructure.md"
   - "Setup":
