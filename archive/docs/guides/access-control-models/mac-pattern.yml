@@ -1,0 +1,251 @@
+---
+# Mandatory Access Control (MAC) Pattern
+# System-enforced access control with security labels
+
+# Security Labels
+security_labels:
+  # Classification Levels
+  classifications:
+    - name: "unclassified"
+      level: 0
+      description: "Public information"
+      color: "green"
+
+    - name: "confidential"
+      level: 1
+      description: "Internal business information"
+      color: "yellow"
+
+    - name: "secret"
+      level: 2
+      description: "Sensitive business information"
+      color: "orange"
+
+    - name: "top_secret"
+      level: 3
+      description: "Highly sensitive information"
+      color: "red"
+
+  # Categories (Need-to-Know)
+  categories:
+    - name: "finance"
+      description: "Financial data and transactions"
+
+    - name: "hr"
+      description: "Human resources and personnel data"
+
+    - name: "engineering"
+      description: "Engineering and technical data"
+
+    - name: "marketing"
+      description: "Marketing and customer data"
+
+    - name: "legal"
+      description: "Legal and compliance data"
+
+    - name: "security"
+      description: "Security and audit data"
+
+# Access Rules
+access_rules:
+  # Read Access Rules
+  read_rules:
+    - name: "read_unclassified"
+      description: "Anyone can read unclassified data"
+      condition:
+        resource_classification: "unclassified"
+      action: "allow"
+
+    - name: "read_confidential"
+      description: "Employees can read confidential data"
+      condition:
+        user_clearance: "confidential"
+        resource_classification: "confidential"
+      action: "allow"
+
+    - name: "read_secret"
+      description: "Authorized users can read secret data"
+      condition:
+        user_clearance: "secret"
+        resource_classification: "secret"
+        user_categories: "contains(resource_categories)"
+      action: "allow"
+
+    - name: "read_top_secret"
+      description: "Highly authorized users can read top secret data"
+      condition:
+        user_clearance: "top_secret"
+        resource_classification: "top_secret"
+        user_categories: "contains(resource_categories)"
+        special_approval: true
+      action: "allow"
+
+  # Write Access Rules
+  write_rules:
+    - name: "write_unclassified"
+      description: "Anyone can write unclassified data"
+      condition:
+        resource_classification: "unclassified"
+      action: "allow"
+
+    - name: "write_confidential"
+      description: "Authorized users can write confidential data"
+      condition:
+        user_clearance: "confidential"
+        resource_classification: "confidential"
+        user_categories: "contains(resource_categories)"
+      action: "allow"
+
+    - name: "write_secret"
+      description: "Highly authorized users can write secret data"
+      condition:
+        user_clearance: "secret"
+        resource_classification: "secret"
+        user_categories: "contains(resource_categories)"
+        dual_approval: true
+      action: "allow"
+
+    - name: "write_top_secret"
+      description: "Top secret data requires special handling"
+      condition:
+        user_clearance: "top_secret"
+        resource_classification: "top_secret"
+        user_categories: "contains(resource_categories)"
+        special_approval: true
+        secure_channel: true
+      action: "allow"
+
+# Resource Labeling
+resource_labeling:
+  # Database Resources
+  databases:
+    - name: "customer_database"
+      classification: "secret"
+      categories: ["marketing", "finance"]
+      labels:
+        - "PII: true"
+        - "GDPR: true"
+        - "encryption: required"
+
+    - name: "employee_database"
+      classification: "confidential"
+      categories: ["hr"]
+      labels:
+        - "PII: true"
+        - "HIPAA: true"
+        - "encryption: required"
+
+    - name: "financial_database"
+      classification: "secret"
+      categories: ["finance"]
+      labels:
+        - "SOX: true"
+        - "audit: required"
+        - "encryption: required"
+
+    - name: "security_logs"
+      classification: "top_secret"
+      categories: ["security"]
+      labels:
+        - "audit: required"
+        - "retention: 7y"
+        - "encryption: required"
+
+  # File Resources
+  files:
+    - name: "public_website"
+      classification: "unclassified"
+      categories: ["marketing"]
+      labels:
+        - "public: true"
+        - "encryption: optional"
+
+    - name: "internal_docs"
+      classification: "confidential"
+      categories: ["engineering"]
+      labels:
+        - "internal: true"
+        - "encryption: required"
+
+    - name: "legal_contracts"
+      classification: "secret"
+      categories: ["legal"]
+      labels:
+        - "legal: true"
+        - "retention: 10y"
+        - "encryption: required"
+
+# User Clearances
+user_clearances:
+  - user_id: "john.doe"
+    clearance: "secret"
+    categories: ["engineering", "security"]
+    special_approvals: ["top_secret_engineering"]
+    clearance_expiry: "2024-12-31"
+    background_check: "completed"
+
+  - user_id: "jane.smith"
+    clearance: "confidential"
+    categories: ["hr", "finance"]
+    special_approvals: []
+    clearance_expiry: "2024-06-30"
+    background_check: "completed"
+
+  - user_id: "bob.wilson"
+    clearance: "top_secret"
+    categories: ["security", "legal"]
+    special_approvals: ["all_categories"]
+    clearance_expiry: "2025-12-31"
+    background_check: "completed"
+    polygraph: "completed"
+
+# System Enforcement
+system_enforcement:
+  # Label Enforcement
+  label_enforcement:
+    - "mandatory_labeling": true
+    - "label_integrity": true
+    - "label_propagation": true
+
+  # Access Enforcement
+  access_enforcement:
+    - "no_read_up": true
+    - "no_write_down": true
+    - "no_read_across": true
+    - "no_write_across": true
+
+  # Audit Requirements
+  audit_requirements:
+    - "all_access_logged": true
+    - "label_changes_logged": true
+    - "clearance_changes_logged": true
+    - "audit_retention": "7y"
+
+# Example Access Decision
+access_decision_example:
+  user: "john.doe"
+  resource: "customer_database"
+  action: "read"
+
+  # User context
+  user_context:
+    clearance: "secret"
+    categories: ["engineering", "security"]
+    special_approvals: ["top_secret_engineering"]
+
+  # Resource context
+  resource_context:
+    classification: "secret"
+    categories: ["marketing", "finance"]
+    labels: ["PII: true", "GDPR: true"]
+
+  # Access evaluation
+  access_evaluation:
+    - "clearance_check": "PASS" # secret >= secret
+    - "category_check": "FAIL" # engineering not in [marketing, finance]
+    - "special_approval": "N/A" # Not top secret
+    - "final_decision": "DENY"
+
+  # Result
+  access_granted: false
+  reason: "Category mismatch - user lacks need-to-know for marketing/finance data"

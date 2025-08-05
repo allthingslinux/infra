@@ -1,0 +1,149 @@
+---
+# Policy-Based Access Control (PBAC) Pattern
+# Business policy-driven access control
+
+# Business Policies
+business_policies:
+  # Policy 1: Separation of Duties
+  - name: "separation_of_duties"
+    description: "Critical operations require multiple approvals"
+    rules:
+      - "No single user can approve and execute financial transactions"
+      - "Production deployments require both dev and ops approval"
+      - "Security changes require security team approval"
+    enforcement:
+      - "dual_approval_required": true
+      - "approval_timeout": "4h"
+      - "escalation_after": "2h"
+
+  # Policy 2: Least Privilege
+  - name: "least_privilege"
+    description: "Users get minimum access needed for their job"
+    rules:
+      - "Access granted only for specific tasks"
+      - "Temporary access expires automatically"
+      - "Regular access reviews required"
+    enforcement:
+      - "just_in_time_access": true
+      - "access_review_frequency": "quarterly"
+      - "auto_revoke_inactive": "90d"
+
+  # Policy 3: Data Classification
+  - name: "data_classification"
+    description: "Access based on data sensitivity"
+    rules:
+      - "Public data: Anyone can read"
+      - "Internal data: Employees only"
+      - "Confidential data: Need-to-know basis"
+      - "Restricted data: Explicit approval required"
+    enforcement:
+      - "data_labeling_required": true
+      - "access_logging": true
+      - "encryption_required": ["confidential", "restricted"]
+
+  # Policy 4: Compliance Requirements
+  - name: "compliance_requirements"
+    description: "Meet regulatory and compliance standards"
+    rules:
+      - "SOX: Financial data access controls"
+      - "HIPAA: Healthcare data protection"
+      - "PCI: Payment data security"
+      - "GDPR: Personal data protection"
+    enforcement:
+      - "audit_logging": true
+      - "data_retention": "7y"
+      - "access_monitoring": true
+
+# Policy Enforcement Rules
+enforcement_rules:
+  # Financial Controls
+  financial_controls:
+    - name: "payment_approval"
+      description: "Payment processing requires dual approval"
+      conditions:
+        - "amount > 10000"
+        - "payment_type in ['wire', 'ach']"
+      actions:
+        - "require_approval: ['finance_manager', 'controller']"
+        - "log_audit_trail: true"
+        - "notify_security: true"
+
+  # Infrastructure Controls
+  infrastructure_controls:
+    - name: "production_deployment"
+      description: "Production deployments require approval"
+      conditions:
+        - "environment == 'production'"
+        - "change_type in ['deployment', 'configuration']"
+      actions:
+        - "require_approval: ['devops_lead', 'security_lead']"
+        - "require_testing: true"
+        - "rollback_plan_required: true"
+
+  # Security Controls
+  security_controls:
+    - name: "privileged_access"
+      description: "Privileged access requires additional controls"
+      conditions:
+        - "access_level == 'admin'"
+        - "resource_sensitivity in ['confidential', 'restricted']"
+      actions:
+        - "require_mfa: true"
+        - "require_approval: ['security_team']"
+        - "time_limit: '8h'"
+        - "session_recording: true"
+
+# Policy Monitoring
+policy_monitoring:
+  # Compliance Monitoring
+  compliance_monitoring:
+    - name: "access_violations"
+      description: "Monitor policy violations"
+      metrics:
+        - "unauthorized_access_attempts"
+        - "policy_violations"
+        - "approval_bypasses"
+      alerts:
+        - "email: security@company.com"
+        - "slack: #security-alerts"
+        - "pagerduty: security-team"
+
+  # Policy Effectiveness
+  policy_effectiveness:
+    - name: "policy_metrics"
+      description: "Measure policy effectiveness"
+      metrics:
+        - "policy_compliance_rate"
+        - "access_review_completion"
+        - "incident_reduction"
+      reporting:
+        - "frequency: monthly"
+        - "stakeholders: ['security', 'compliance', 'management']"
+
+# Example Policy Application
+policy_application_example:
+  scenario: "Database access request"
+  user: "john.doe"
+  request: "Access to production customer database"
+
+  # Policy evaluation
+  policies_applied:
+    - "separation_of_duties": "Requires dual approval"
+    - "least_privilege": "Read-only access only"
+    - "data_classification": "Customer data is confidential"
+    - "compliance_requirements": "GDPR compliance required"
+
+  # Enforcement actions
+  enforcement_actions:
+    - "require_approval: ['data_owner', 'security_lead']"
+    - "access_level: 'read_only'"
+    - "time_limit: '30d'"
+    - "audit_logging: true"
+    - "data_encryption: true"
+
+  # Result
+  access_granted: true
+  conditions:
+    - "Approval received from both approvers"
+    - "Access expires in 30 days"
+    - "All access logged and monitored"

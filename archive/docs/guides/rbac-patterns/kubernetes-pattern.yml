@@ -1,0 +1,117 @@
+---
+# Kubernetes-Style RBAC Pattern
+# Resource-based permissions with API groups
+
+# API Resources
+api_resources:
+  - name: "pods"
+    api_group: "core"
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    namespaced: true
+
+  - name: "services"
+    api_group: "core"
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    namespaced: true
+
+  - name: "deployments"
+    api_group: "apps"
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    namespaced: true
+
+  - name: "secrets"
+    api_group: "core"
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    namespaced: true
+
+  - name: "nodes"
+    api_group: "core"
+    verbs: ["get", "list", "watch", "update", "patch"]
+    namespaced: false
+
+# Cluster Roles (Global Permissions)
+cluster_roles:
+  cluster-admin:
+    description: "Super-user access to perform any action on any resource"
+    rules:
+      - api_groups: ["*"]
+        resources: ["*"]
+        verbs: ["*"]
+
+  admin:
+    description: "Full access to resources within a namespace"
+    rules:
+      - api_groups: ["*"]
+        resources: ["*"]
+        verbs: ["*"]
+        namespaces: ["*"]
+
+  edit:
+    description: "Read/write access to most objects in a namespace"
+    rules:
+      - api_groups: ["*"]
+        resources: ["*"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+        namespaces: ["*"]
+      - api_groups: [""]
+        resources: ["secrets"]
+        verbs: ["get", "list", "watch"]
+        namespaces: ["*"]
+
+  view:
+    description: "Read-only access to see most objects in a namespace"
+    rules:
+      - api_groups: ["*"]
+        resources: ["*"]
+        verbs: ["get", "list", "watch"]
+        namespaces: ["*"]
+      - api_groups: [""]
+        resources: ["secrets"]
+        verbs: []
+        namespaces: ["*"]
+
+# Namespace-Specific Roles
+namespace_roles:
+  developer:
+    description: "Developer access to application resources"
+    rules:
+      - api_groups: ["apps"]
+        resources: ["deployments", "replicasets"]
+        verbs: ["get", "list", "watch", "create", "update", "patch"]
+      - api_groups: [""]
+        resources: ["pods", "services", "configmaps"]
+        verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+  devops:
+    description: "DevOps access to infrastructure resources"
+    rules:
+      - api_groups: ["*"]
+        resources: ["*"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - api_groups: [""]
+        resources: ["secrets"]
+        verbs: ["get", "list", "watch"]
+
+  security:
+    description: "Security team access for compliance"
+    rules:
+      - api_groups: ["*"]
+        resources: ["*"]
+        verbs: ["get", "list", "watch"]
+      - api_groups: [""]
+        resources: ["secrets"]
+        verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+# Service Accounts
+service_accounts:
+  - name: "deployment-sa"
+    namespace: "default"
+    roles: ["developer"]
+
+  - name: "monitoring-sa"
+    namespace: "monitoring"
+    roles: ["view"]
+
+  - name: "security-sa"
+    namespace: "security"
+    roles: ["security"]

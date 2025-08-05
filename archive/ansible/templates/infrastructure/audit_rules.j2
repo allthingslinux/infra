@@ -1,0 +1,23 @@
+# Audit Rules for Systems Team
+# Minimal audit configuration
+
+# Monitor sudo usage
+-w /etc/sudoers -p wa -k sudo_changes
+-w /etc/sudoers.d/ -p wa -k sudo_changes
+
+# Monitor SSH access
+-w /etc/ssh/sshd_config -p wa -k ssh_config_changes
+
+# Monitor user management
+-w /etc/passwd -p wa -k user_management
+-w /etc/group -p wa -k user_management
+
+# Monitor emergency access
+-w /etc/sudoers.d/emergency_access -p wa -k emergency_access
+
+# Monitor critical system files
+-w /etc/fstab -p wa -k system_files
+-w /etc/crontab -p wa -k system_files
+
+# Monitor service management
+-w /etc/systemd/system/ -p wa -k service_management

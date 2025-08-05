@@ -1,0 +1,180 @@
+---
+# Minimal User Management Playbook
+# Uses official Ansible collections and best practices
+
+- name: Setup team users and access
+  hosts: all
+  become: true
+  vars_files:
+    - ../../group_vars/users.yml
+    - ../../group_vars/user_roles.yml
+  vars:
+    audit_log: "/var/log/systems_team/user-management.log"
+
+  pre_tasks:
+    - name: Create audit log directory
+      ansible.builtin.file:
+        path: /var/log/systems_team
+        state: directory
+        mode: "0755"
+
+    - name: Initialize audit log
+      ansible.builtin.lineinfile:
+        path: "{{ audit_log }}"
+        line: "{{ ansible_date_time.iso8601 }} - User management started by {{ ansible_user_id }}"
+        create: true
+        mode: "0644"
+
+  tasks:
+    # Create system groups
+    - name: Create system groups
+      ansible.builtin.group:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - systems_team
+        - sudo
+        - docker
+
+    # Create user accounts
+    - name: Create user accounts
+      ansible.builtin.user:
+        name: "{{ item.username }}"
+        groups: "{{ item.groups | join(',') }}"
+        shell: /bin/bash
+        create_home: true
+        state: present
+      loop: "{{ team_members }}"
+
+    # Setup SSH keys using official collection
+    - name: Setup SSH keys for users
+      ansible.posix.authorized_key:
+        user: "{{ item.username }}"
+        key: "{{ item.ssh_keys[0] }}"
+        state: present
+        exclusive: true
+      loop: "{{ team_members }}"
+
+    # Configure sudo access
+    - name: Configure sudo access for senior team members
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers.d/systems_team
+        line: "{{ item.username }} ALL=(ALL) NOPASSWD:ALL"
+        state: present
+        create: true
+        mode: "0440"
+        validate: "visudo -cf %s"
+      loop: "{{ team_members | selectattr('sudo', 'equalto', true) | list }}"
+
+    # Setup SSH configuration
+    - name: Create SSH config directory
+      ansible.builtin.file:
+        path: "/home/{{ item.username }}/.ssh"
+        state: directory
+        owner: "{{ item.username }}"
+        group: "{{ item.username }}"
+        mode: "0700"
+      loop: "{{ team_members }}"
+
+    # Create emergency access script
+    - name: Create emergency access script
+      ansible.builtin.template:
+        src: emergency_access.sh.j2
+        dest: /usr/local/bin/emergency_access
+        mode: "0755"
+        owner: root
+        group: root
+
+    # Setup audit logging
+    - name: Create audit log directory
+      ansible.builtin.file:
+        path: /var/log/audit
+        state: directory
+        mode: "0755"
+
+    - name: Configure audit rules
+      ansible.builtin.template:
+        src: audit_rules.j2
+        dest: /etc/audit/rules.d/systems_team.rules
+        owner: root
+        group: root
+        mode: "0640"
+      notify: restart auditd
+
+    # Setup ACLs for project directories (from staff-management)
+    - name: Create project directories
+      ansible.builtin.file:
+        path: "/opt/projects/{{ item }}"
+        state: directory
+        owner: root
+        group: systems_team
+        mode: "0750"
+      loop:
+        - infrastructure
+        - application_services
+        - database_services
+        - monitoring
+
+    - name: Set up project directory ACLs
+      ansible.posix.acl:
+        path: "/opt/projects"
+        entity: "systems_team"
+        etype: group
+        permissions: "rwx"
+        state: present
+
+    - name: Set up log directory ACLs
+      ansible.posix.acl:
+        path: "/var/log/systems_team"
+        entity: "systems_team"
+        etype: group
+        permissions: "r"
+        state: present
+
+    # Create audit script (from staff-management)
+    - name: Create audit script
+      ansible.builtin.copy:
+        dest: /usr/local/bin/systems-team-audit.sh
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          # Systems team access audit script
+
+          AUDIT_LOG="/var/log/systems_team/access-audit.log"
+          DATE=$(date '+%Y-%m-%d %H:%M:%S')
+
+          echo "$DATE - Starting systems team access audit" >> $AUDIT_LOG
+
+          # Check active sessions
+          who >> $AUDIT_LOG
+
+          # Check recent logins
+          echo "Recent logins:" >> $AUDIT_LOG
+          last -n 20 >> $AUDIT_LOG
+
+          # Check sudo usage
+          echo "Recent sudo usage:" >> $AUDIT_LOG
+          grep sudo /var/log/auth.log | tail -20 >> $AUDIT_LOG
+
+          echo "$DATE - Systems team access audit completed" >> $AUDIT_LOG
+
+    # Setup cron job for audit (from staff-management)
+    - name: Set up audit cron job
+      ansible.builtin.cron:
+        name: "Systems Team Access Audit"
+        minute: "0"
+        hour: "*/6"
+        job: "/usr/local/bin/systems-team-audit.sh"
+        user: root
+
+    # Log completion
+    - name: Log user management completion
+      ansible.builtin.lineinfile:
+        path: "{{ audit_log }}"
+        line: "{{ ansible_date_time.iso8601 }} - User management completed successfully"
+
+  handlers:
+    - name: restart auditd
+      ansible.builtin.service:
+        name: auditd
+        state: restarted

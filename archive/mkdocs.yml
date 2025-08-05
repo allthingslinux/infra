@@ -1,0 +1,162 @@
+---
+site_name: All Things Linux Infrastructure Documentation
+site_description: Automated infrastructure documentation and visualization for the All Things Linux community
+site_url: https://allthingslinux.github.io/infra
+repo_url: https://github.com/allthingslinux/infra
+repo_name: allthingslinux/infra
+edit_uri: edit/main/docs/
+
+site_dir: .mkdocs
+
+nav:
+  - "Home": "index.md"
+  - "Infrastructure":
+      - "Overview": "infrastructure/overview.md"
+      - "Terraform Modules": "infrastructure/terraform.md"
+      - "Terraform Configuration": "infrastructure/terraform-configuration.md"
+      - "Architecture Diagrams": "infrastructure/diagrams.md"
+  - "Automation":
+      - "Playbooks": "automation/playbooks.md"
+      - "Roles": "automation/roles.md"
+      - "Inventory": "automation/inventory.md"
+      - "CLI Tools": "automation/cli-tools.md"
+  - "Guides":
+      - "Deployment": "guides/deployment.md"
+      - "Development": "guides/development.md"
+      - "Development Environment": "guides/development-environment.md"
+      - "Secrets Management": "guides/secrets-management.md"
+      - "Security": "guides/security.md"
+      - "Infrastructure Guide": "guides/infrastructure.md"
+  - "Setup":
+      - "Installation": "setup/installation.md"
+      - "Configuration": "setup/configuration.md"
+  - "Reference":
+      - "Commands": "reference/commands.md"
+      - "Configuration": "reference/configuration.md"
+      - "Troubleshooting": "reference/troubleshooting.md"
+  - "Integrations":
+      - "Cloudflare": "integrations/cloudflare.md"
+      - "Hetzner": "integrations/hetzner.md"
+
+theme:
+  name: material
+  language: en
+
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+  font:
+    text: Inter
+    code: JetBrains Mono
+
+  icon:
+    repo: fontawesome/brands/github
+
+  features:
+    # Navigation
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.indexes
+    - navigation.top
+    - navigation.prune
+
+    # Table of Contents
+    - toc.integrate
+    - toc.follow
+
+    # Search
+    - search.suggest
+    - search.highlight
+
+    # Code Actions
+    - content.action.edit
+    - content.code.copy
+    - content.code.select
+    - content.tabs.link
+
+plugins:
+  - search
+  - include-markdown
+  # - mermaid2
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji
+  - pymdownx.highlight:
+      use_pygments: true
+      pygments_lang_class: true
+      auto_title: true
+      linenums: true
+      linenums_style: pymdownx-inline
+      line_spans: __span
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      repo_url_shorthand: true
+      user: allthingslinux
+      repo: infra
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - "pymdownx.superfences":
+      "custom_fences":
+        [
+          {
+            "name": "mermaid",
+            "class": "mermaid",
+            "format": pymdownx.superfences.fence_div_format,
+          },
+        ]
+
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra:
+  social:
+    - icon: fontawesome/solid/globe
+      link: https://allthingslinux.org
+    - icon: fontawesome/brands/github
+      link: https://github.com/allthingslinux/infra
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/linux
+
+extra_css:
+  - assets/extra.css
+
+extra_javascript:
+  - assets/extra.js

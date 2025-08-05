@@ -1,0 +1,160 @@
+---
+# AWS IAM-Style RBAC Pattern
+# Action-based permissions with resource ARNs
+
+# Service Actions
+service_actions:
+  ec2:
+    - "ec2:DescribeInstances"
+    - "ec2:StartInstances"
+    - "ec2:StopInstances"
+    - "ec2:TerminateInstances"
+    - "ec2:CreateInstance"
+    - "ec2:ModifyInstanceAttribute"
+
+  s3:
+    - "s3:GetObject"
+    - "s3:PutObject"
+    - "s3:DeleteObject"
+    - "s3:ListBucket"
+    - "s3:GetBucketPolicy"
+    - "s3:PutBucketPolicy"
+
+  iam:
+    - "iam:GetUser"
+    - "iam:CreateUser"
+    - "iam:DeleteUser"
+    - "iam:AttachUserPolicy"
+    - "iam:DetachUserPolicy"
+    - "iam:ListAttachedUserPolicies"
+
+  rds:
+    - "rds:DescribeDBInstances"
+    - "rds:CreateDBInstance"
+    - "rds:ModifyDBInstance"
+    - "rds:DeleteDBInstance"
+    - "rds:DescribeDBClusters"
+    - "rds:CreateDBCluster"
+
+# Managed Policies (Predefined Permission Sets)
+managed_policies:
+  AdministratorAccess:
+    description: "Provides full access to AWS services and resources"
+    statement:
+      - effect: "Allow"
+        action: "*"
+        resource: "*"
+
+  PowerUserAccess:
+    description: "Provides full access to AWS services and resources, except for IAM"
+    statement:
+      - effect: "Allow"
+        action: "*"
+        resource: "*"
+      - effect: "Deny"
+        action: "iam:*"
+        resource: "*"
+
+  ReadOnlyAccess:
+    description: "Provides read-only access to AWS services and resources"
+    statement:
+      - effect: "Allow"
+        action: "Describe*"
+        resource: "*"
+      - effect: "Allow"
+        action: "Get*"
+        resource: "*"
+      - effect: "Allow"
+        action: "List*"
+        resource: "*"
+
+# Custom Policies
+custom_policies:
+  DeveloperPolicy:
+    description: "Developer access to application resources"
+    statement:
+      - effect: "Allow"
+        action:
+          - "ec2:DescribeInstances"
+          - "ec2:DescribeSecurityGroups"
+          - "s3:GetObject"
+          - "s3:PutObject"
+          - "s3:ListBucket"
+        resource:
+          - "arn:aws:ec2:region:account:instance/*"
+          - "arn:aws:ec2:region:account:security-group/*"
+          - "arn:aws:s3:::app-bucket/*"
+          - "arn:aws:s3:::app-bucket"
+
+  DevOpsPolicy:
+    description: "DevOps access to infrastructure management"
+    statement:
+      - effect: "Allow"
+        action:
+          - "ec2:*"
+          - "rds:*"
+          - "s3:*"
+          - "cloudformation:*"
+        resource: "*"
+      - effect: "Deny"
+        action: "iam:*"
+        resource: "*"
+
+  SecurityPolicy:
+    description: "Security team access for compliance and monitoring"
+    statement:
+      - effect: "Allow"
+        action:
+          - "cloudtrail:*"
+          - "config:*"
+          - "guardduty:*"
+          - "securityhub:*"
+        resource: "*"
+      - effect: "Allow"
+        action:
+          - "ec2:DescribeInstances"
+          - "s3:GetObject"
+          - "rds:DescribeDBInstances"
+        resource: "*"
+
+# User Groups
+user_groups:
+  developers:
+    policies: ["DeveloperPolicy"]
+    users: []
+
+  devops:
+    policies: ["DevOpsPolicy"]
+    users: []
+
+  security:
+    policies: ["SecurityPolicy", "ReadOnlyAccess"]
+    users: []
+
+  administrators:
+    policies: ["AdministratorAccess"]
+    users: []
+
+# Role-Based Access
+roles:
+  application-role:
+    description: "Application deployment role"
+    assume_role_policy:
+      version: "2012-10-17"
+      statement:
+        - effect: "Allow"
+          principal:
+            service: "ec2.amazonaws.com"
+          action: "sts:AssumeRole"
+    policies: ["DeveloperPolicy"]
+
+  monitoring-role:
+    description: "Monitoring and alerting role"
+    assume_role_policy:
+      version: "2012-10-17"
+      statement:
+        - effect: "Allow"
+          principal:
+            service: "lambda.amazonaws.com"
+          action: "sts:AssumeRole"
+    policies: ["ReadOnlyAccess"]

@@ -1,0 +1,54 @@
+---
+# Core Services Configuration
+# This applies to core infrastructure services (atl_services group)
+
+# Core services include:
+# - nginx-proxy-manager
+# - authentik
+# - grafana
+# - prometheus
+# - alertmanager
+# - loki
+# - postfix
+
+# Core service network configuration
+core_network:
+  subnet: "172.20.0.0/16"
+  internal_ip: "10.0.1.10"
+  external_access: true
+
+# Core service monitoring configuration
+core_monitoring:
+  enabled: true
+  critical: true
+  retention_days: 90
+  alert_channels:
+    - email
+    - webhook
+
+# Core service security configuration
+core_security:
+  ssl_enabled: true
+  fail2ban_enabled: true
+  firewall_rules:
+    - port: 80
+      protocol: tcp
+    - port: 443
+      protocol: tcp
+    - port: 22
+      protocol: tcp
+
+# Core service backup configuration
+core_backup:
+  enabled: true
+  frequency: "daily"
+  retention: "30 days"
+  include_logs: true
+
+# Core service domains
+core_domains:
+  - atl.services
+  - npm.atl.services
+  - auth.atl.services
+  - metrics.atl.services
+  - mail.atl.services 

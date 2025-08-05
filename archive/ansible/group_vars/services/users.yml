@@ -1,0 +1,94 @@
+---
+# Minimal User Management System
+# Uses official Ansible collections and best practices
+
+# Team members with their roles and access levels
+team_members:
+  # Senior team members
+  - username: alex
+    role: senior_sysadmin
+    sudo: true
+    on_call: true
+    ssh_keys:
+      - "{{ vault_ssh_key_alex }}"
+    groups:
+      - sudo
+      - docker
+      - systems_team
+    projects: ["infrastructure", "monitoring", "deployment"]
+
+  - username: sarah
+    role: senior_sysadmin
+    sudo: true
+    on_call: true
+    ssh_keys:
+      - "{{ vault_ssh_key_sarah }}"
+    groups:
+      - sudo
+      - docker
+      - systems_team
+    projects: ["infrastructure", "monitoring", "deployment"]
+
+  # Mid-level team members
+  - username: mike
+    role: sysadmin
+    sudo: false
+    on_call: false
+    ssh_keys:
+      - "{{ vault_ssh_key_mike }}"
+    groups:
+      - systems_team
+      - docker
+    projects: ["monitoring", "deployment"]
+
+  - username: jess
+    role: sysadmin
+    sudo: false
+    on_call: false
+    ssh_keys:
+      - "{{ vault_ssh_key_jess }}"
+    groups:
+      - systems_team
+      - docker
+    projects: ["monitoring", "deployment"]
+
+  # Junior team members
+  - username: emma
+    role: jr_sysadmin
+    sudo: false
+    on_call: false
+    ssh_keys:
+      - "{{ vault_ssh_key_emma }}"
+    groups:
+      - systems_team
+    projects: ["monitoring"]
+
+  - username: tom
+    role: jr_sysadmin
+    sudo: false
+    on_call: false
+    ssh_keys:
+      - "{{ vault_ssh_key_tom }}"
+    groups:
+      - systems_team
+    projects: ["monitoring"]
+
+# Security settings
+security:
+  mfa_required: true
+  key_rotation_days: 90
+  session_timeout_hours: 8
+  failed_login_lockout: 5
+  audit_logging: true
+
+# On-call schedule
+on_call:
+  primary:
+    - alex
+    - sarah
+  secondary:
+    - mike
+    - jess
+  shadow:
+    - emma
+    - tom

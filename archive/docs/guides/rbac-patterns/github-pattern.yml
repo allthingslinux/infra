@@ -1,0 +1,84 @@
+---
+# GitHub-Style RBAC Pattern
+# Simple permission levels with clear escalation paths
+
+# Core Permission Levels
+permission_levels:
+  read:
+    description: "Read-only access to resources"
+    capabilities:
+      - view_repositories
+      - view_issues
+      - view_pull_requests
+      - view_workflows
+    scope: ["public", "organization", "repository"]
+
+  write:
+    description: "Can create and modify content"
+    capabilities:
+      - create_issues
+      - create_pull_requests
+      - push_code
+      - manage_issues
+    scope: ["repository", "organization"]
+    requires: ["read"]
+
+  admin:
+    description: "Full repository management"
+    capabilities:
+      - manage_repository_settings
+      - manage_team_access
+      - delete_repository
+      - manage_secrets
+    scope: ["repository", "organization"]
+    requires: ["write"]
+
+  owner:
+    description: "Organization-level control"
+    capabilities:
+      - manage_organization
+      - manage_billing
+      - manage_members
+      - manage_teams
+    scope: ["organization"]
+    requires: ["admin"]
+
+# Team-Based Access
+teams:
+  developers:
+    default_permission: "write"
+    repositories: ["*"]
+    members: []
+
+  maintainers:
+    default_permission: "admin"
+    repositories: ["core-*", "api-*"]
+    members: []
+
+  security:
+    default_permission: "admin"
+    repositories: ["security-*", "compliance-*"]
+    members: []
+
+  docs:
+    default_permission: "write"
+    repositories: ["docs-*", "website"]
+    members: []
+
+# Repository-Specific Overrides
+repository_permissions:
+  "critical-infra":
+    teams:
+      developers: "read"
+      maintainers: "admin"
+      security: "admin"
+    individual_permissions:
+      "infra-lead": "admin"
+      "security-lead": "admin"
+
+  "public-api":
+    teams:
+      developers: "write"
+      maintainers: "admin"
+    individual_permissions:
+      "api-architect": "admin"

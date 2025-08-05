@@ -1,0 +1,53 @@
+---
+# ATL Wiki Domain Configuration
+# Specific configuration for atl.wiki domain
+
+# Domain information
+domain_name: "atl.wiki"
+domain_group: "apps"
+domain_enabled: true
+domain_required: false
+
+# Services running on this domain
+domain_services:
+  - mediawiki
+  - apache
+  - elasticsearch
+
+# Features
+domain_features:
+  search: true
+  caching: true
+  documentation: true
+
+# Network configuration (Ansible-specific)
+network_config:
+  subnet: "172.24.0.0/16"
+  ip: "10.0.4.10"
+  external_access: true
+
+# Port configuration
+ports_config:
+  - port: 8083
+    protocol: tcp
+    service: "wiki-services"
+
+# Monitoring configuration
+monitoring_config:
+  enabled: true
+  critical: false
+  retention_days: 30
+
+# Security configuration
+security_config:
+  ssl_enabled: true
+  fail2ban_enabled: true
+  firewall_enabled: true
+
+# Wiki-specific configuration
+wiki_config:
+  mediawiki_version: "latest"
+  elasticsearch_enabled: true
+  search_enabled: true
+  caching_enabled: true
+  backup_enabled: true

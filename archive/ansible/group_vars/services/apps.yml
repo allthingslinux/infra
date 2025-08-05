@@ -1,0 +1,64 @@
+---
+# Application Services Configuration
+# This applies to application services (atl_tools, atl_chat, atl_wiki groups)
+
+# App services include:
+# - nextcloud, gitea, vaultwarden, tux-bot, uptime-kuma, pastebin (atl_tools)
+# - prosody, ergo-irc, matterbridge, signal-bridge, element-web (atl_chat)
+# - wiki services (atl_wiki)
+
+# App service network configuration
+apps_network:
+  subnet_base: "172.22.0.0/16"
+  internal_ip_base: "10.0.2"
+  external_access: true
+
+# App service monitoring configuration
+apps_monitoring:
+  enabled: true
+  critical: false
+  retention_days: 30
+  alert_channels:
+    - webhook
+
+# App service security configuration
+apps_security:
+  ssl_enabled: true
+  fail2ban_enabled: true
+  firewall_rules:
+    - port: 80
+      protocol: tcp
+    - port: 443
+      protocol: tcp
+    - port: 8081
+      protocol: tcp
+    - port: 8082
+      protocol: tcp
+
+# App service backup configuration
+apps_backup:
+  enabled: true
+  frequency: "daily"
+  retention: "14 days"
+  include_logs: false
+
+# App service domains
+apps_domains:
+  atl_tools:
+    - atl.tools
+    - nextcloud.atl.tools
+    - gitea.atl.tools
+    - vaultwarden.atl.tools
+  atl_chat:
+    - atl.chat
+    - chat.atl.chat
+    - irc.atl.chat
+  atl_wiki:
+    - atl.wiki
+    - docs.atl.wiki
+
+# App service features
+apps_features:
+  sso_enabled: true
+  monitoring_enabled: true
+  backup_enabled: true 

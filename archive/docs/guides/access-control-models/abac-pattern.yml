@@ -1,0 +1,165 @@
+---
+# Attribute-Based Access Control (ABAC) Pattern
+# Dynamic access control based on user, resource, and environment attributes
+
+# User Attributes
+user_attributes:
+  - name: "department"
+    values: ["engineering", "marketing", "finance", "security"]
+
+  - name: "location"
+    values: ["office", "remote", "traveling"]
+
+  - name: "clearance_level"
+    values: ["public", "internal", "confidential", "secret"]
+
+  - name: "time_zone"
+    values: ["EST", "CST", "MST", "PST", "UTC"]
+
+  - name: "device_type"
+    values: ["desktop", "laptop", "mobile", "tablet"]
+
+# Resource Attributes
+resource_attributes:
+  - name: "sensitivity"
+    values: ["public", "internal", "confidential", "secret"]
+
+  - name: "environment"
+    values: ["development", "staging", "production"]
+
+  - name: "data_classification"
+    values: ["public", "internal", "confidential", "restricted"]
+
+  - name: "compliance_requirements"
+    values: ["none", "SOX", "HIPAA", "PCI", "GDPR"]
+
+# Environment Attributes
+environment_attributes:
+  - name: "time_of_day"
+    values: ["business_hours", "after_hours", "weekend"]
+
+  - name: "network_location"
+    values: ["corporate_network", "vpn", "public_wifi", "mobile"]
+
+  - name: "threat_level"
+    values: ["low", "medium", "high", "critical"]
+
+# Access Policies
+access_policies:
+  # Policy 1: Production access during business hours
+  - name: "production_business_hours"
+    description: "Production access only during business hours for authorized users"
+    condition:
+      user:
+        department: ["engineering", "devops"]
+        clearance_level: ["confidential", "secret"]
+      resource:
+        environment: "production"
+      environment:
+        time_of_day: "business_hours"
+        network_location: ["corporate_network", "vpn"]
+    action: "allow"
+    permissions: ["read", "write"]
+
+  # Policy 2: Emergency access for on-call
+  - name: "emergency_access"
+    description: "Emergency access for on-call engineers"
+    condition:
+      user:
+        department: ["engineering", "devops"]
+        clearance_level: ["confidential", "secret"]
+      resource:
+        environment: "production"
+      environment:
+        time_of_day: ["after_hours", "weekend"]
+        threat_level: ["high", "critical"]
+    action: "allow"
+    permissions: ["read", "write", "admin"]
+
+  # Policy 3: Development access for developers
+  - name: "development_access"
+    description: "Development environment access for developers"
+    condition:
+      user:
+        department: ["engineering"]
+      resource:
+        environment: "development"
+      environment:
+        network_location: ["corporate_network", "vpn", "public_wifi"]
+    action: "allow"
+    permissions: ["read", "write"]
+
+  # Policy 4: Read-only access for non-technical users
+  - name: "readonly_access"
+    description: "Read-only access for business users"
+    condition:
+      user:
+        department: ["marketing", "finance"]
+      resource:
+        sensitivity: ["public", "internal"]
+      environment:
+        time_of_day: "business_hours"
+        network_location: ["corporate_network", "vpn"]
+    action: "allow"
+    permissions: ["read"]
+
+  # Policy 5: Security team access
+  - name: "security_access"
+    description: "Security team access to all environments"
+    condition:
+      user:
+        department: "security"
+        clearance_level: ["confidential", "secret"]
+      resource:
+        environment: ["development", "staging", "production"]
+      environment:
+        network_location: ["corporate_network", "vpn"]
+    action: "allow"
+    permissions: ["read", "write", "admin"]
+
+# Dynamic Policy Evaluation
+policy_evaluation:
+  # Real-time attribute evaluation
+  evaluation_mode: "realtime"
+
+  # Attribute sources
+  attribute_sources:
+    - "user_directory" # LDAP, Active Directory
+    - "device_management" # MDM, EMM
+    - "network_detection" # Network location
+    - "time_service" # Time-based rules
+    - "threat_intelligence" # Security feeds
+
+  # Policy combination
+  combination_logic: "deny_overrides"
+
+  # Caching
+  attribute_cache_ttl: 300 # 5 minutes
+  policy_cache_ttl: 3600 # 1 hour
+
+# Example User Context
+user_context_example:
+  user_id: "john.doe"
+  attributes:
+    department: "engineering"
+    location: "office"
+    clearance_level: "confidential"
+    time_zone: "EST"
+    device_type: "laptop"
+
+  resource:
+    name: "production-database"
+    sensitivity: "confidential"
+    environment: "production"
+    data_classification: "confidential"
+    compliance_requirements: "SOX"
+
+  environment:
+    time_of_day: "business_hours"
+    network_location: "corporate_network"
+    threat_level: "low"
+
+  # Policy evaluation result
+  access_granted: true
+  permissions: ["read", "write"]
+  policy_applied: "production_business_hours"

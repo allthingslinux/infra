@@ -1,0 +1,47 @@
+---
+# ATL Dev Domain Configuration
+# Specific configuration for atl.dev domain
+
+# Domain information
+domain_name: "atl.dev"
+domain_group: "core"
+domain_enabled: true
+domain_required: false
+
+# Services running on this domain
+domain_services:
+  - docker
+  - code-server
+  - ssh-server
+  - web-hosting
+  - vps-management
+
+# Features
+domain_features:
+  pubnix: true
+  ssh_access: true
+  development: true
+
+# Network configuration (Ansible-specific)
+network_config:
+  subnet: "172.21.0.0/16"
+  ip: "10.0.2.20"
+  external_access: true
+
+# Port configuration
+ports_config:
+  - port: 8081
+    protocol: tcp
+    service: "development-services"
+
+# Monitoring configuration
+monitoring_config:
+  enabled: true
+  critical: false
+  retention_days: 30
+
+# Security configuration
+security_config:
+  ssl_enabled: true
+  fail2ban_enabled: true
+  firewall_enabled: true

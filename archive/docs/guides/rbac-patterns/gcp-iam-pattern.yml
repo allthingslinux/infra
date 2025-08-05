@@ -1,0 +1,195 @@
+---
+# Google Cloud IAM-Style RBAC Pattern
+# Resource hierarchy with inherited permissions
+
+# Resource Hierarchy
+resource_hierarchy:
+  organization:
+    - projects:
+        - compute:
+            - instances
+            - networks
+            - disks
+        - storage:
+            - buckets
+            - objects
+        - database:
+            - instances
+            - databases
+        - security:
+            - iam
+            - audit_logs
+            - secrets
+
+# Predefined Roles
+predefined_roles:
+  # Organization Level
+  roles/owner:
+    description: "Full access to all resources"
+    permissions:
+      - "*"
+    stage: "GA"
+
+  roles/editor:
+    description: "Edit access to all resources"
+    permissions:
+      - "compute.*"
+      - "storage.*"
+      - "database.*"
+      - "monitoring.*"
+    stage: "GA"
+
+  roles/viewer:
+    description: "View access to all resources"
+    permissions:
+      - "compute.instances.get"
+      - "compute.instances.list"
+      - "storage.objects.get"
+      - "storage.objects.list"
+      - "database.instances.get"
+      - "database.instances.list"
+    stage: "GA"
+
+# Custom Roles
+custom_roles:
+  # Compute Engine
+  roles/compute.developer:
+    description: "Developer access to compute resources"
+    permissions:
+      - "compute.instances.get"
+      - "compute.instances.list"
+      - "compute.instances.create"
+      - "compute.instances.update"
+      - "compute.disks.get"
+      - "compute.disks.list"
+      - "compute.disks.create"
+      - "compute.networks.get"
+      - "compute.networks.list"
+    stage: "GA"
+
+  roles/compute.admin:
+    description: "Full access to compute resources"
+    permissions:
+      - "compute.*"
+    stage: "GA"
+
+  # Storage
+  roles/storage.developer:
+    description: "Developer access to storage resources"
+    permissions:
+      - "storage.objects.get"
+      - "storage.objects.list"
+      - "storage.objects.create"
+      - "storage.objects.update"
+      - "storage.buckets.get"
+      - "storage.buckets.list"
+    stage: "GA"
+
+  roles/storage.admin:
+    description: "Full access to storage resources"
+    permissions:
+      - "storage.*"
+    stage: "GA"
+
+  # Database
+  roles/database.developer:
+    description: "Developer access to database resources"
+    permissions:
+      - "database.instances.get"
+      - "database.instances.list"
+      - "database.instances.create"
+      - "database.instances.update"
+      - "database.databases.get"
+      - "database.databases.list"
+      - "database.databases.create"
+    stage: "GA"
+
+  roles/database.admin:
+    description: "Full access to database resources"
+    permissions:
+      - "database.*"
+    stage: "GA"
+
+  # Security
+  roles/security.admin:
+    description: "Security team access"
+    permissions:
+      - "iam.roles.get"
+      - "iam.roles.list"
+      - "iam.serviceAccounts.get"
+      - "iam.serviceAccounts.list"
+      - "audit.logs.get"
+      - "secretmanager.secrets.get"
+      - "secretmanager.secrets.list"
+    stage: "GA"
+
+# Service Accounts
+service_accounts:
+  - name: "deployment-sa@project.iam.gserviceaccount.com"
+    display_name: "Deployment Service Account"
+    description: "Service account for application deployment"
+    roles:
+      - "roles/compute.developer"
+      - "roles/storage.developer"
+      - "roles/database.developer"
+
+  - name: "monitoring-sa@project.iam.gserviceaccount.com"
+    display_name: "Monitoring Service Account"
+    description: "Service account for monitoring and alerting"
+    roles:
+      - "roles/viewer"
+      - "roles/monitoring.viewer"
+
+  - name: "security-sa@project.iam.gserviceaccount.com"
+    display_name: "Security Service Account"
+    description: "Service account for security operations"
+    roles:
+      - "roles/security.admin"
+      - "roles/viewer"
+
+# IAM Bindings
+iam_bindings:
+  # Project Level
+  "projects/project-id":
+    members:
+      - "user:admin@company.com"
+      - "group:developers@company.com"
+      - "serviceAccount:deployment-sa@project.iam.gserviceaccount.com"
+    role: "roles/editor"
+
+  # Compute Resources
+  "projects/project-id/instances/instance-1":
+    members:
+      - "user:developer@company.com"
+      - "serviceAccount:deployment-sa@project.iam.gserviceaccount.com"
+    role: "roles/compute.developer"
+
+  # Storage Resources
+  "projects/project-id/buckets/app-bucket":
+    members:
+      - "user:developer@company.com"
+      - "serviceAccount:deployment-sa@project.iam.gserviceaccount.com"
+    role: "roles/storage.developer"
+
+  # Database Resources
+  "projects/project-id/instances/db-instance":
+    members:
+      - "user:developer@company.com"
+      - "serviceAccount:deployment-sa@project.iam.gserviceaccount.com"
+    role: "roles/database.developer"
+
+# Conditional Access
+conditional_access:
+  - name: "business-hours-access"
+    description: "Access only during business hours"
+    expression: "request.time.getHours() >= 9 && request.time.getHours() <= 17"
+    members:
+      - "user:contractor@company.com"
+    role: "roles/viewer"
+
+  - name: "emergency-access"
+    description: "Emergency access for critical incidents"
+    expression: "request.auth.token.emergency == true"
+    members:
+      - "user:oncall@company.com"
+    role: "roles/editor"

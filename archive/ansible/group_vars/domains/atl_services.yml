@@ -1,0 +1,44 @@
+---
+# ATL Services Domain Configuration
+# Specific configuration for atl.services domain
+
+# Domain information
+domain_name: "atl.services"
+domain_group: "core"
+domain_enabled: true
+domain_required: true
+
+# Services running on this domain
+domain_services:
+  - nginx-proxy-manager
+  - authentik
+  - grafana
+  - prometheus
+  - alertmanager
+  - loki
+  - postfix
+
+# Subdomains
+subdomains:
+  - npm
+  - auth
+  - metrics
+  - mail
+
+# Network configuration (Ansible-specific)
+network_config:
+  subnet: "172.20.0.0/16"
+  ip: "10.0.1.10"
+  external_access: true
+
+# Monitoring configuration
+monitoring_config:
+  enabled: true
+  critical: true
+  retention_days: 90
+
+# Security configuration
+security_config:
+  ssl_enabled: true
+  fail2ban_enabled: true
+  firewall_enabled: true

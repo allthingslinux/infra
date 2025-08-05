@@ -1,0 +1,65 @@
+---
+# Infrastructure Services Configuration
+# This applies to infrastructure-level services
+
+# Infrastructure services include:
+# - docker
+# - nginx-proxy-manager
+# - postfix
+# - ssh-server
+# - vps-management
+
+# Infrastructure service network configuration
+infrastructure_network:
+  subnet: "172.24.0.0/16"
+  internal_ip: "10.0.4.10"
+  external_access: true
+
+# Infrastructure service security
+infrastructure_security:
+  ssl_enabled: true
+  fail2ban_enabled: true
+  firewall_rules:
+    - port: 22
+      protocol: tcp
+    - port: 80
+      protocol: tcp
+    - port: 443
+      protocol: tcp
+    - port: 25
+      protocol: tcp
+    - port: 587
+      protocol: tcp
+
+# Infrastructure service backup
+infrastructure_backup:
+  enabled: true
+  frequency: "daily"
+  retention: "30 days"
+  include_configs: true
+
+# Infrastructure service monitoring
+infrastructure_monitoring:
+  enabled: true
+  critical: true
+  retention_days: 90
+
+# Docker configuration
+infrastructure_docker:
+  daemon_config_path: "/etc/docker/daemon.json"
+  compose_path: "/usr/local/bin/docker-compose"
+  service_name: "docker"
+  storage_driver: "overlay2"
+  log_driver: "json-file"
+
+# Mail service configuration
+infrastructure_mail:
+  postfix_enabled: true
+  smtp_port: 25
+  submission_port: 587
+  ssl_enabled: true
+
+# Internal DNS configuration
+infrastructure_dns:
+  coredns_listen: ":53"
+  internal_resolution: true

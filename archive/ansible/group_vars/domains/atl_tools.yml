@@ -1,0 +1,42 @@
+---
+# ATL Tools Domain Configuration
+# Specific configuration for atl.tools domain
+
+# Domain information
+domain_name: "atl.tools"
+domain_group: "apps"
+domain_enabled: true
+domain_required: false
+
+# Services running on this domain
+domain_services:
+  - nextcloud
+  - gitea
+  - vaultwarden
+  - tux-bot
+  - uptime-kuma
+  - pastebin
+
+# Features
+domain_features:
+  sso: true
+  monitoring: true
+  backup: true
+
+# Network configuration (Ansible-specific)
+network_config:
+  subnet: "172.22.0.0/16"
+  ip: "10.0.2.10"
+  external_access: true
+
+# Monitoring configuration
+monitoring_config:
+  enabled: true
+  critical: false
+  retention_days: 30
+
+# Security configuration
+security_config:
+  ssl_enabled: true
+  fail2ban_enabled: true
+  firewall_enabled: true

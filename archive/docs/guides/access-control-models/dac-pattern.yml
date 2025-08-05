@@ -1,0 +1,209 @@
+---
+# Discretionary Access Control (DAC) Pattern
+# Resource owner controls access permissions
+
+# Resource Ownership
+resource_ownership:
+  # File System Ownership
+  file_ownership:
+    - path: "/home/john/projects/"
+      owner: "john"
+      group: "developers"
+      permissions: "rwxr-xr-x"
+      inheritance: "children_inherit"
+
+    - path: "/var/www/website/"
+      owner: "webadmin"
+      group: "webteam"
+      permissions: "rwxr-x---"
+      inheritance: "children_inherit"
+
+    - path: "/opt/database/"
+      owner: "dbadmin"
+      group: "database"
+      permissions: "rwx------"
+      inheritance: "children_inherit"
+
+  # Database Ownership
+  database_ownership:
+    - database: "customer_db"
+      owner: "data_owner"
+      schema_owners: ["analytics_team", "marketing_team"]
+      table_owners:
+        - "customers": "marketing_owner"
+        - "orders": "sales_owner"
+        - "analytics": "analytics_owner"
+
+    - database: "employee_db"
+      owner: "hr_director"
+      schema_owners: ["hr_team", "payroll_team"]
+      table_owners:
+        - "employees": "hr_manager"
+        - "payroll": "payroll_manager"
+        - "benefits": "hr_manager"
+
+  # Application Ownership
+  application_ownership:
+    - application: "customer_portal"
+      owner: "product_manager"
+      component_owners:
+        - "frontend": "frontend_lead"
+        - "backend": "backend_lead"
+        - "database": "data_owner"
+
+    - application: "internal_tools"
+      owner: "devops_lead"
+      component_owners:
+        - "monitoring": "sre_team"
+        - "deployment": "devops_team"
+        - "security": "security_team"
+
+# Permission Inheritance
+permission_inheritance:
+  # File System Inheritance
+  file_inheritance:
+    - inheritance_type: "acl_inheritance"
+      rules:
+        - "children_inherit_parent_permissions"
+        - "new_files_inherit_directory_permissions"
+        - "subdirectories_inherit_parent_permissions"
+
+    - inheritance_type: "group_inheritance"
+      rules:
+        - "user_inherits_group_permissions"
+        - "nested_groups_inherit_parent_permissions"
+        - "role_permissions_override_group_permissions"
+
+  # Database Inheritance
+  database_inheritance:
+    - inheritance_type: "schema_inheritance"
+      rules:
+        - "schema_owner_controls_all_tables"
+        - "table_owner_controls_table_permissions"
+        - "view_owner_controls_view_permissions"
+
+    - inheritance_type: "role_inheritance"
+      rules:
+        - "role_permissions_inherit_from_parent_roles"
+        - "user_permissions_inherit_from_roles"
+        - "explicit_permissions_override_inherited"
+
+# Access Control Lists (ACLs)
+access_control_lists:
+  # File ACLs
+  file_acls:
+    - path: "/shared/documents/"
+      owner: "admin"
+      acl_entries:
+        - "user:john": "rwx"
+        - "user:sarah": "rwx"
+        - "group:managers": "r-x"
+        - "group:employees": "r--"
+        - "other": "---"
+
+    - path: "/confidential/reports/"
+      owner: "finance_director"
+      acl_entries:
+        - "user:finance_director": "rwx"
+        - "user:controller": "rwx"
+        - "group:finance_team": "r-x"
+        - "other": "---"
+
+  # Database ACLs
+  database_acls:
+    - database: "customer_db"
+      owner: "data_owner"
+      acl_entries:
+        - "user:marketing_manager": "ALL"
+        - "user:sales_manager": "SELECT, INSERT, UPDATE"
+        - "user:analyst": "SELECT"
+        - "role:readonly_users": "SELECT"
+        - "role:data_writers": "SELECT, INSERT, UPDATE"
+
+    - database: "employee_db"
+      owner: "hr_director"
+      acl_entries:
+        - "user:hr_director": "ALL"
+        - "user:hr_manager": "SELECT, INSERT, UPDATE"
+        - "user:payroll_manager": "SELECT, INSERT, UPDATE"
+        - "role:hr_readonly": "SELECT"
+        - "other": "NONE"
+
+# Delegation of Authority
+delegation_of_authority:
+  # Temporary Delegation
+  temporary_delegation:
+    - delegator: "data_owner"
+      delegate: "analytics_lead"
+      resource: "customer_db"
+      permissions: ["SELECT", "CREATE VIEW"]
+      duration: "30d"
+      reason: "Analytics project"
+
+    - delegator: "hr_director"
+      delegate: "hr_manager"
+      resource: "employee_db"
+      permissions: ["ALL"]
+      duration: "7d"
+      reason: "HR director on vacation"
+
+  # Permanent Delegation
+  permanent_delegation:
+    - delegator: "system_admin"
+      delegate: "devops_lead"
+      resource: "infrastructure"
+      permissions: ["ALL"]
+      reason: "DevOps team management"
+
+    - delegator: "product_manager"
+      delegate: "tech_lead"
+      resource: "customer_portal"
+      permissions: ["ALL"]
+      reason: "Technical leadership"
+
+# Access Auditing
+access_auditing:
+  # File Access Auditing
+  file_auditing:
+    - "all_file_access_logged": true
+    - "permission_changes_logged": true
+    - "ownership_changes_logged": true
+    - "delegation_changes_logged": true
+    - "audit_retention": "1y"
+
+  # Database Access Auditing
+  database_auditing:
+    - "all_database_access_logged": true
+    - "permission_changes_logged": true
+    - "schema_changes_logged": true
+    - "data_access_logged": true
+    - "audit_retention": "7y"
+
+# Example Access Decision
+access_decision_example:
+  user: "john"
+  resource: "/shared/documents/report.pdf"
+  action: "read"
+
+  # Resource context
+  resource_context:
+    owner: "sarah"
+    group: "managers"
+    permissions: "rw-r--r--"
+    acl_entries:
+      - "user:sarah": "rwx"
+      - "user:john": "rwx"
+      - "group:managers": "r-x"
+      - "other": "---"
+
+  # Access evaluation
+  access_evaluation:
+    - "owner_check": "FAIL" # john != sarah
+    - "user_acl_check": "PASS" # john has rwx
+    - "group_check": "N/A" # john not in managers group
+    - "other_check": "N/A" # john has explicit permission
+    - "final_decision": "ALLOW"
+
+  # Result
+  access_granted: true
+  reason: "User has explicit read permission in ACL"

@@ -1,0 +1,12 @@
+# Copy this file to terraform.tfvars and fill in your values
+
+# Required variables
+hcloud_token = "your_hetzner_cloud_token_here"
+ssh_public_key = "ssh-rsa AAAAB3N... user@example.com"
+
+# Optional variables (with defaults shown)
+domain = "atl.services"
+environment = "dev"
+region = "fsn1"
+server_type = "cpx21"
+private_network_cidr = "10.0.1.0/24"

@@ -1,0 +1,29 @@
+---
+# User role definitions for minimal user management system
+
+# User role definitions (minimal)
+user_roles:
+  senior_sysadmin:
+    description: "Senior systems administrator with full access"
+    sudo_access: true
+    emergency_access: true
+    ssh_access: ["all"]
+
+  sysadmin:
+    description: "Systems administrator with operational access"
+    sudo_access: false
+    emergency_access: false
+    ssh_access:
+      - "atl_services"
+      - "atl_dev"
+      - "atl_tools"
+      - "database_cluster"
+      - "backup"
+
+  jr_sysadmin:
+    description: "Junior systems administrator with limited access"
+    sudo_access: false
+    emergency_access: false
+    ssh_access:
+      - "atl_dev"
+      - "env_production"

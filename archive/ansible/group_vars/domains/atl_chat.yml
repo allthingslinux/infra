@@ -1,0 +1,47 @@
+---
+# ATL Chat Domain Configuration
+# Specific configuration for atl.chat domain
+
+# Domain information
+domain_name: "atl.chat"
+domain_group: "apps"
+domain_enabled: true
+domain_required: false
+
+# Services running on this domain
+domain_services:
+  - prosody
+  - ergo-irc
+  - matterbridge
+  - signal-bridge
+  - element-web
+
+# Features
+domain_features:
+  sso: true
+  monitoring: true
+  backup: true
+
+# Network configuration (Ansible-specific)
+network_config:
+  subnet: "172.23.0.0/16"
+  ip: "10.0.3.10"
+  external_access: true
+
+# Port configuration
+ports_config:
+  - port: 8082
+    protocol: tcp
+    service: "chat-services"
+
+# Monitoring configuration
+monitoring_config:
+  enabled: true
+  critical: false
+  retention_days: 30
+
+# Security configuration
+security_config:
+  ssl_enabled: true
+  fail2ban_enabled: true
+  firewall_enabled: true

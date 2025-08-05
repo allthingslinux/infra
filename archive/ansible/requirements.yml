@@ -1,0 +1,21 @@
+---
+# Ansible Requirements for All Things Linux Infrastructure
+# Install with:
+#   ansible-galaxy install -r ansible/requirements.yml
+
+roles:
+  # From Ansible Galaxy
+  - name: rolehippie.coredns
+    src: https://github.com/rolehippie/coredns.git
+
+collections:
+  - name: ansible.posix
+    version: "2.0.0"
+  - name: community.general
+    version: "11.0.0"
+  - name: community.docker
+    version: "4.6.1"
+  - name: hetzner.hcloud
+    version: "5.1.0"
+  - name: community.crypto
+    version: "2.0.0"

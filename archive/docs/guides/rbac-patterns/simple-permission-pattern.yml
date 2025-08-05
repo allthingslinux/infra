@@ -1,0 +1,107 @@
+---
+# Simple Permission-Based RBAC Pattern
+# Minimal approach used by many organizations
+
+# Permission Levels
+permissions:
+  read:
+    description: "Can view resources"
+    actions:
+      - "view"
+      - "list"
+      - "get"
+
+  write:
+    description: "Can modify resources"
+    actions:
+      - "create"
+      - "update"
+      - "delete"
+      - "deploy"
+
+  admin:
+    description: "Full control"
+    actions:
+      - "*"
+
+# Resource Types
+resources:
+  servers:
+    - "web"
+    - "database"
+    - "monitoring"
+    - "backup"
+
+  applications:
+    - "frontend"
+    - "backend"
+    - "api"
+    - "mobile"
+
+  infrastructure:
+    - "networks"
+    - "storage"
+    - "security"
+    - "monitoring"
+
+# User Groups
+groups:
+  developers:
+    permissions: "write"
+    resources: ["applications"]
+    members: []
+
+  devops:
+    permissions: "admin"
+    resources: ["servers", "infrastructure"]
+    members: []
+
+  security:
+    permissions: "admin"
+    resources: ["infrastructure"]
+    members: []
+
+  support:
+    permissions: "read"
+    resources: ["servers", "applications"]
+    members: []
+
+  managers:
+    permissions: "read"
+    resources: ["*"]
+    members: []
+
+# Access Control
+access_control:
+  # Time-based restrictions
+  business_hours: "09:00-17:00"
+  emergency_access: "24/7"
+
+  # Environment restrictions
+  production_access:
+    - "devops"
+    - "security"
+    - "managers"
+
+  # Approval requirements
+  critical_changes:
+    required_approvers: 2
+    roles: ["devops", "security"]
+
+# Simple User Assignment
+users:
+  - username: "john"
+    groups: ["developers"]
+    ssh_key: "{{ vault_ssh_key_john }}"
+
+  - username: "sarah"
+    groups: ["devops", "security"]
+    ssh_key: "{{ vault_ssh_key_sarah }}"
+
+  - username: "mike"
+    groups: ["support"]
+    ssh_key: "{{ vault_ssh_key_mike }}"
+
+  - username: "lisa"
+    groups: ["managers"]
+    ssh_key: "{{ vault_ssh_key_lisa }}"
